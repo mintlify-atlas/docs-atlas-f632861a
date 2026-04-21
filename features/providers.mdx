@@ -1,0 +1,141 @@
+---
+title: "AI Provider Configuration: 17+ Providers Supported"
+description: "Connect AI providers in CodePilot: Anthropic, OpenRouter, Bedrock, Vertex, Chinese providers, Ollama, and custom Anthropic or OpenAI-compatible endpoints."
+---
+
+CodePilot ships with presets for 17+ AI providers and supports any Anthropic-compatible or OpenAI-compatible endpoint as a custom provider. All provider configuration lives in **Settings → Providers** and is stored locally — your API keys never leave your machine.
+
+## Provider categories
+
+<AccordionGroup>
+  <Accordion title="Direct API">
+    Connect directly to a provider's API with a single key.
+
+    | Provider | Notes |
+    |---|---|
+    | **Anthropic** | Official Anthropic API. Supports Sonnet 4.6, Opus 4.7, and Haiku 4.5 with full effort-level and thinking-mode support. |
+    | **OpenRouter** | Routes requests to hundreds of models from a single API key. Uses the Anthropic-compatible wire protocol with Bearer token auth. |
+  </Accordion>
+
+  <Accordion title="Cloud platforms">
+    Enterprise-grade providers that use IAM or service-account credentials rather than a plain API key.
+
+    | Provider | Auth method |
+    |---|---|
+    | **AWS Bedrock** | AWS IAM credentials via environment variables (`AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`). The `opus` alias resolves to Opus 4.6 on Bedrock — to use Opus 4.7 you must set the full upstream model ID. |
+    | **Google Vertex AI** | GCP service account or Application Default Credentials via environment variables (`CLOUD_ML_REGION`, `ANTHROPIC_VERTEX_PROJECT_ID`). The `opus` alias resolves to Opus 4.6 on Vertex. |
+
+    <Warning>
+    AWS Bedrock and Google Vertex AI do not use a simple API key. You must configure environment variables with your cloud credentials before these providers will work. See the [AWS Bedrock](#aws-bedrock) and [Google Vertex AI](#google-vertex-ai) sections below.
+    </Warning>
+  </Accordion>
+
+  <Accordion title="Chinese providers">
+    Providers primarily serving the China market. Most use an Anthropic-compatible endpoint with a Bearer token.
+
+    | Provider | Model(s) | Billing |
+    |---|---|---|
+    | **GLM (CN)** | GLM-5-Turbo, GLM-5.1, GLM-4.5-Air | Coding plan (credits) |
+    | **GLM (Global)** | GLM-5-Turbo, GLM-5.1, GLM-4.5-Air | Coding plan (credits) |
+    | **Kimi Coding Plan** | Kimi K2.5 | Pay-as-you-go |
+    | **Moonshot** | Kimi K2.5 | Pay-as-you-go |
+    | **MiniMax (CN)** | MiniMax-M2.7 | Token plan |
+    | **MiniMax (Global)** | MiniMax-M2.7 | Token plan |
+    | **Volcengine Ark** | Doubao, GLM, DeepSeek, Kimi (user-specified) | Coding plan |
+    | **Xiaomi MiMo** | MiMo-V2-Pro | Pay-as-you-go |
+    | **Xiaomi MiMo Token Plan** | MiMo-V2-Pro | Token plan |
+    | **Aliyun Bailian** | Qwen 3.6 Plus, Qwen 3 Coder Next/Plus, Kimi K2.5, GLM-5, GLM-4.7, MiniMax-M2.5 | Coding plan |
+
+    <Note>
+    **Aliyun Bailian** requires a Coding Plan–specific key that begins with `sk-sp-`. A standard DashScope key will not work.
+    </Note>
+
+    <Note>
+    **Volcengine Ark** requires you to activate an Endpoint in the Volcengine console before use. You must also specify the model name(s) manually during setup because the preset does not include a default model list.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Local and self-hosted">
+    Run models on your own hardware with no data leaving your machine.
+
+    | Provider | Notes |
+    |---|---|
+    | **Ollama** | Runs local models via an Anthropic-compatible local server at `http://localhost:11434`. No API key required — Ollama uses a fixed pseudo-token. You must specify which pulled models to use. |
+    | **LiteLLM** | A proxy server that can front any model with an Anthropic-compatible interface. Provide the base URL and an optional API key. |
+  </Accordion>
+
+  <Accordion title="Custom endpoints">
+    Point CodePilot at any custom server that speaks the Anthropic or OpenAI wire protocol.
+
+    - **Anthropic-compatible** — Set the base URL to your endpoint. CodePilot injects your API key as `ANTHROPIC_API_KEY` and routes through the same path as the official Anthropic preset.
+    - **OpenAI-compatible** — Use the OpenAI-compatible protocol preset and provide a base URL plus API key. Suitable for local servers, corporate proxies, or third-party gateways that speak the OpenAI API.
+
+    You can rename a custom provider, override model names, and set additional environment variables from the advanced configuration panel.
+  </Accordion>
+</AccordionGroup>
+
+## Adding a provider
+
+<Steps>
+  <Step title="Open Settings → Providers">
+    Click the gear icon or navigate to **Settings → Providers** from the sidebar.
+  </Step>
+  <Step title="Select a preset">
+    Click **Add Provider** and choose a preset from the list. Presets fill in the base URL, protocol, and auth style automatically.
+  </Step>
+  <Step title="Enter your credentials">
+    Paste your API key into the **API Key** field. For providers that use Bearer token auth (OpenRouter, GLM, MiniMax, etc.) the same field accepts your token — CodePilot maps it to the correct environment variable internally.
+  </Step>
+  <Step title="Save and test">
+    Click **Save**. CodePilot adds the provider to your list. Start a new conversation and select the provider to verify it works.
+  </Step>
+</Steps>
+
+## AWS Bedrock
+
+AWS Bedrock does not use an API key. Authentication is handled entirely through AWS credentials that you configure as environment variables before launching CodePilot.
+
+The required environment variables are:
+
+```bash
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=<your-access-key-id>
+AWS_SECRET_ACCESS_KEY=<your-secret-access-key>
+```
+
+When you add the Bedrock preset in CodePilot, the `CLAUDE_CODE_USE_BEDROCK=1` flag is set automatically. You must have subscribed to the Claude models you want to use in the AWS Bedrock console before they will be available.
+
+<Info>
+The `CLAUDE_CODE_SKIP_BEDROCK_AUTH=1` flag is also set by the preset. This tells the Claude Code SDK to skip its own credential validation step and rely on the environment credentials you have already set.
+</Info>
+
+## Google Vertex AI
+
+Google Vertex AI requires GCP credentials and project configuration. Set the following environment variables before launching CodePilot:
+
+```bash
+CLOUD_ML_REGION=us-east5
+ANTHROPIC_VERTEX_PROJECT_ID=<your-gcp-project-id>
+```
+
+You must also enable the Vertex AI API for your project and subscribe to the Claude models you want in the Vertex AI Model Garden. Application Default Credentials (`gcloud auth application-default login`) or a service account key file set via `GOOGLE_APPLICATION_CREDENTIALS` are both supported.
+
+## Running diagnostics
+
+If a provider is not returning models or is throwing authentication errors, use the built-in diagnostics tool:
+
+1. Go to **Settings → Providers**.
+2. Select the provider you want to check.
+3. Click **Run Diagnostics**.
+
+Diagnostics checks connectivity to the base URL, validates the API key format, and attempts a lightweight model-list request. The result shows a categorized error such as "Key invalid", "URL unreachable", or "Model not found" to help you pinpoint the issue.
+
+## Claude Code CLI requirement
+
+Some provider features — file editing, terminal commands, and git operations — depend on the Claude Code CLI being installed on your machine:
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+Basic chat and Ask-mode conversations work with any supported provider and do not require the CLI. The CLI is only needed when you use Code mode and want the assistant to directly modify files or run shell commands.

@@ -1,0 +1,112 @@
+{
+  "projectType": "saas",
+  "projectName": "CodePilot",
+  "projectDescription": "A multi-model AI agent desktop client that connects 17+ AI providers, extends with MCP servers and skills, supports remote control via messaging apps, and keeps all data local.",
+  "theme": "almond",
+  "primaryColor": "#a55434",
+  "lightColor": "#e0ae94",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/conversations",
+              "features/providers",
+              "features/assistant-workspace"
+            ]
+          },
+          {
+            "group": "Extensions",
+            "pages": [
+              "extensions/mcp-servers",
+              "extensions/skills",
+              "extensions/bridge"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/generative-ui",
+              "advanced/media-studio",
+              "advanced/task-scheduler",
+              "advanced/session-management"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/slash-commands",
+              "reference/keyboard-shortcuts",
+              "reference/configuration",
+              "reference/troubleshooting",
+              "reference/faq"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Contributing",
+            "pages": [
+              "development/architecture",
+              "development/local-setup",
+              "development/building"
+            ]
+          },
+          {
+            "group": "Internals",
+            "pages": [
+              "development/database",
+              "development/api-routes",
+              "development/bridge-system"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "17+ AI provider support (Anthropic, OpenRouter, AWS Bedrock, Google Vertex, Ollama, and more)",
+    "MCP server integration with stdio/sse/http transport and runtime monitoring",
+    "Skills system with custom, project-level, and global skills from skills.sh marketplace",
+    "Remote Bridge — control CodePilot from Telegram, Feishu, Discord, QQ, and WeChat",
+    "Assistant Workspace with persona files (soul.md, user.md, claude.md, memory.md) and persistent memory",
+    "Generative UI — AI-created interactive dashboards and visual widgets rendered live in-app",
+    "Session management: pause, resume, rewind to checkpoint, split-screen dual sessions",
+    "Media Studio with AI image generation, batch tasks, gallery, and tagging",
+    "Task Scheduler with cron-based and interval scheduling",
+    "Local SQLite storage — all data stays on your machine",
+    "Import Claude Code CLI .jsonl session history",
+    "Token usage and cost tracking with daily charts"
+  ],
+  "publicApiSurface": [
+    "POST /api/chat/messages — send a message and stream AI response",
+    "GET /api/chat/messages — list messages for a session",
+    "GET/POST /api/providers — list and manage AI provider configurations",
+    "GET/POST /api/plugins — list and manage MCP server plugins",
+    "GET/POST /api/skills — list and manage skills",
+    "GET/POST /api/settings — read and write application settings",
+    "GET/POST /api/bridge — manage IM bridge channel bindings",
+    "GET/POST /api/media — image generation jobs and gallery",
+    "GET /api/files — file tree browsing for a working directory",
+    "GET /api/git — git status, branches, and commits",
+    "GET /api/usage — token and cost usage analytics",
+    "GET /api/doctor — provider diagnostics and health probes",
+    "GET/POST /api/workspace — assistant workspace operations",
+    "GET/POST /api/tasks — scheduled task management"
+  ]
+}

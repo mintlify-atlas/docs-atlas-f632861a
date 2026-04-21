@@ -1,0 +1,121 @@
+---
+title: "CodePilot Conversations: Modes, Controls, and Sessions"
+description: "Complete guide to CodePilot conversations: Code/Plan/Ask modes, reasoning effort, permission control, session rewind, split-screen, and token tracking."
+---
+
+Every CodePilot conversation starts with three choices: a working directory, an interaction mode, and a model. From there you get a full-featured agent session with fine-grained controls over how the AI works, what it can touch, and how long it runs.
+
+## Interaction modes
+
+CodePilot offers three modes that shape how the assistant approaches your request.
+
+<CardGroup cols={3}>
+  <Card title="Code" icon="code">
+    Full agentic mode. The assistant can read and edit files, run terminal commands, make git commits, and use MCP tools. Requires the Claude Code CLI for file and terminal operations.
+  </Card>
+  <Card title="Plan" icon="list-checks">
+    Structured planning mode. The assistant thinks through a problem and produces a step-by-step plan before acting. Useful for scoping larger features or refactors before writing code.
+  </Card>
+  <Card title="Ask" icon="message-circle">
+    Conversational Q&A mode. No file or terminal access. Best for quick questions, explanations, and brainstorming without triggering agentic tool use.
+  </Card>
+</CardGroup>
+
+You can switch modes when creating a new session. The mode is stored on the session and shown in the session header.
+
+## Reasoning effort
+
+For models that support extended thinking, you can control how much reasoning the model invests before responding.
+
+<Tabs>
+  <Tab title="Effort levels">
+    | Level | What it does |
+    |---|---|
+    | **Low** | Fastest and cheapest. Good for simple tasks. |
+    | **Medium** | Balanced. Suitable for most everyday requests. |
+    | **High** | More deliberate reasoning. Better for complex multi-step problems. |
+    | **Max** | Maximum reasoning depth. Slowest and most expensive. |
+    | **xhigh** | Available on Opus 4.7 (first-party Anthropic only). Exceeds the standard `max` budget. |
+  </Tab>
+  <Tab title="Thinking mode">
+    Enabling **Thinking** mode lets the model surface its internal chain-of-thought as a collapsible block in the response. This is separate from effort level — you can enable thinking at any effort tier. Supported on Sonnet 4.6, Opus 4.6/4.7, and Haiku 4.5 when connected through a compatible provider.
+  </Tab>
+</Tabs>
+
+<Note>
+Not all providers and models support effort levels. The effort selector is disabled automatically when the active model does not advertise `supportsEffort`.
+</Note>
+
+## Permission control
+
+CodePilot lets you decide how much autonomy the assistant has over your machine.
+
+<CardGroup cols={2}>
+  <Card title="Default" icon="shield">
+    The assistant asks for your approval before performing potentially risky actions such as running shell commands, deleting files, or making network requests. A dialog appears for each action so you can approve, reject, or stop the session.
+  </Card>
+  <Card title="Full Access" icon="unlock">
+    The assistant runs all actions without asking. Suitable for trusted, well-scoped tasks where you want uninterrupted execution. You can still pause or rewind the session at any time.
+  </Card>
+</CardGroup>
+
+The permission profile is set per-session and stored in the `permission_profile` field. You can change it before starting or from the session header while paused.
+
+## Session control
+
+<Steps>
+  <Step title="Pause">
+    Click the pause button or press the keyboard shortcut to halt the assistant mid-run. All progress is preserved. Useful when you want to inspect output before the session continues.
+  </Step>
+  <Step title="Resume">
+    Click resume to continue from where the session stopped. The assistant picks up with the same context and SDK session ID.
+  </Step>
+  <Step title="Rewind to checkpoint">
+    Every assistant turn creates a checkpoint. Use the rewind control on any message to roll the conversation back to that point. Subsequent messages are discarded and the session resumes from the rewound state.
+  </Step>
+  <Step title="Archive">
+    Archiving a session moves it out of the active list without deleting it. Archived sessions are searchable and can be reopened at any time.
+  </Step>
+</Steps>
+
+## Model switching
+
+You can change the provider or model in the middle of a conversation without losing your context. Select a new model from the model picker in the session toolbar. CodePilot starts a fresh SDK sub-session with the new model while keeping the conversation history visible in the UI.
+
+<Warning>
+Switching models or providers clears the underlying SDK session ID. The assistant will not have implicit memory of tool calls made in the previous SDK session, though the message history remains visible to you.
+</Warning>
+
+## Split-screen dual sessions
+
+Open two conversations side by side using the split-screen button in the toolbar. Both sessions run independently and can use different models, modes, and working directories. This is useful for comparing model outputs or working on two related problems simultaneously.
+
+## Attachments
+
+Drag files or images into the message input, or use the attachment button, to include them with your message.
+
+- **Files** — Source code, Markdown, plain text, PDFs, and other document types are sent as text content.
+- **Images** — Screenshots, diagrams, and photos are sent via multimodal vision APIs. Vision support depends on the active model; CodePilot surfaces an indicator when the model supports image inputs.
+
+<Tip>
+Pasting an image directly from the clipboard (Cmd/Ctrl+V) also works as an attachment.
+</Tip>
+
+## Slash commands
+
+Type `/` in the message input to trigger the slash command menu. Commands let you perform actions like clearing the context window, showing cost information, running a code review, and more.
+
+See the [Slash Commands reference](/reference/slash-commands) for the full list.
+
+## Token usage and costs
+
+CodePilot tracks input and output token counts for every message and displays a running cost estimate based on the active provider's pricing. You can view:
+
+- **Per-session totals** — shown in the session header and on the session detail panel.
+- **Daily usage charts** — a bar chart of token usage and estimated spend per day, available in **Settings → Usage**.
+
+Use the `/cost` slash command inside any session to print the current session's cumulative token count and estimated cost inline.
+
+## Importing Claude Code CLI sessions
+
+If you have existing session history from the Claude Code CLI (stored as `.jsonl` files), you can import it into CodePilot via **File → Import Session** or the import button on the sessions list. CodePilot reads the `.jsonl` format and creates a read-only session record so you can browse and search past CLI conversations alongside your CodePilot sessions.

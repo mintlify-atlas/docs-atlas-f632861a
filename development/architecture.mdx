@@ -1,0 +1,133 @@
+---
+title: "CodePilot Architecture: Electron, Next.js, and SQLite"
+description: "Technical overview of CodePilot's layered architecture: Electron shell, Next.js API layer, SQLite persistence, and Claude Agent SDK integration."
+---
+
+CodePilot is a multi-model AI agent desktop client built on a layered architecture. Electron 40 provides the native desktop shell, Next.js 16 handles all frontend rendering and the internal REST API, better-sqlite3 stores all data locally, and the Claude Agent SDK drives AI interactions. Understanding how these layers connect is the starting point for any contribution.
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Desktop shell | Electron 40 |
+| Frontend framework | Next.js 16 (App Router) + React 19 |
+| Styling | Tailwind CSS 4 + Radix UI |
+| Database | better-sqlite3 (WAL mode) |
+| AI integration | Claude Agent SDK, `@ai-sdk/anthropic`, `@ai-sdk/google`, `@ai-sdk/openai` |
+| IM integration | Telegram Bot API, Feishu SDK (`@larksuiteoapi/node-sdk`), Discord.js |
+| Code highlighting | Shiki |
+| Markdown rendering | react-markdown, streamdown, markdown-it |
+| Packaging | electron-builder (DMG + NSIS + AppImage) |
+| Testing | Playwright (E2E), tsx + node:test (unit) |
+
+## Directory structure
+
+```
+src/
+├── app/                # Next.js App Router — pages + API routes
+│   ├── api/            #   52 REST endpoints (chat, media, files, plugins, settings…)
+│   ├── chat/           #   Chat page (main interface)
+│   ├── plugins/        #   Plugin / MCP management
+│   ├── settings/       #   Application settings
+│   ├── bridge/         #   IM Bridge settings
+│   ├── gallery/        #   Image gallery
+│   └── …
+├── components/         # React components (organized by feature)
+│   ├── ui/             #   Radix base components (Button, Dialog, Tabs…)
+│   ├── chat/           #   Chat interface (MessageList, CodeBlock, ImageThumbnail…)
+│   ├── ai-elements/    #   AI response rendering (artifact, reasoning, tool, task…)
+│   ├── layout/         #   Layout (AppShell, Header, NavRail, ChatListPanel…)
+│   ├── plugins/        #   Plugin management UI
+│   ├── settings/       #   Settings panels
+│   ├── bridge/         #   Bridge settings UI
+│   ├── skills/         #   Skills marketplace
+│   ├── project/        #   Project file tree
+│   └── gallery/        #   Gallery view
+├── lib/                # Core business logic
+│   ├── db.ts                      # SQLite schema + CRUD
+│   ├── claude-client.ts           # Claude Agent SDK wrapper, message streaming
+│   ├── stream-session-manager.ts  # SSE stream lifecycle management
+│   ├── conversation-registry.ts   # Active SDK session global registry
+│   ├── image-generator.ts         # Gemini/Anthropic image generation
+│   ├── job-executor.ts            # Batch image generation task executor
+│   ├── files.ts                   # File system browsing and preview
+│   ├── platform.ts                # Platform detection (macOS/Windows/Linux)
+│   ├── error-classifier.ts        # Error classification (16 structured error types)
+│   ├── provider-doctor.ts         # Provider diagnostics (5 probes + fix actions)
+│   ├── runtime-log.ts             # Console ring buffer (200 entries, auto-redacted)
+│   └── bridge/                    # IM Bridge subsystem
+├── hooks/              # React hooks (useSSEStream, useImageGen, useTranslation…)
+├── types/              # TypeScript types
+│   ├── index.ts                   # All business types (ChatSession, Message, MCPServerConfig…)
+│   └── electron.d.ts              # Electron contextBridge API types
+└── i18n/               # Internationalization
+    ├── en.ts                      # English
+    └── zh.ts                      # Chinese
+
+electron/
+├── main.ts             # Electron main process (window, IPC, Utility Process)
+└── preload.ts          # contextBridge exposure (install API, updater API)
+```
+
+## Data flow
+
+The main chat path flows from the user interface through the API layer into the Claude Agent SDK and back:
+
+```
+User input → MessageInput component
+           → POST /api/chat
+           → claude-client.ts (creates SDK conversation)
+           → Claude Agent SDK SSE stream
+           → stream-session-manager.ts manages the stream
+           → useSSEStream hook subscribes
+           → MessageList renders
+           → db.ts persists to SQLite
+```
+
+The Bridge subsystem adds a parallel path for remote IM control:
+
+```
+Telegram / Feishu message
+  → Adapter (long polling / WebSocket)
+  → channel-router.ts routes to CodePilot session
+  → conversation-engine.ts calls Claude SDK
+  → SDK SSE response
+  → delivery-layer.ts formats + chunks
+  → Adapter sends back to IM
+```
+
+## Key modules
+
+<CardGroup cols={2}>
+  <Card title="claude-client.ts" icon="brain">
+    Wraps the Claude Agent SDK. Exports `streamClaude()`, which is the single entry point for all AI interactions — both the desktop UI and the Bridge subsystem call this function.
+  </Card>
+  <Card title="stream-session-manager.ts" icon="activity">
+    Manages SSE stream lifecycle: tracks active streams, handles pause/resume, and exposes the stream state to React hooks via `useSSEStream`.
+  </Card>
+  <Card title="conversation-registry.ts" icon="database">
+    Global in-process registry of active Claude SDK sessions. Allows interrupting or rewinding a session by its ID without re-creating it.
+  </Card>
+  <Card title="db.ts" icon="hard-drive">
+    Single file that owns the entire SQLite schema, all migrations, and every CRUD function. All database access goes through this module — no other file calls `better-sqlite3` directly.
+  </Card>
+</CardGroup>
+
+## Adding a new feature
+
+When adding a feature that spans multiple layers, you will typically need to touch the following files:
+
+| Touch point | Path | Purpose |
+|---|---|---|
+| Type definitions | `src/types/index.ts` | Add interfaces / types |
+| Database | `src/lib/db.ts` | Add table or column (with migration) |
+| API route | `src/app/api/{feature}/route.ts` | New REST endpoint |
+| Page | `src/app/{feature}/page.tsx` | New route page |
+| Components | `src/components/{feature}/` | UI components |
+| Hook | `src/hooks/use{Feature}.ts` | State management hook |
+| i18n | `src/i18n/en.ts` + `zh.ts` | Bilingual translation keys |
+| Bridge | `src/lib/bridge/adapters/` + `types.ts` | If IM integration is involved |
+
+<Note>
+Always add both English and Chinese translation keys together. The app ships with full `en` and `zh` locale support and missing keys produce visible gaps in the Chinese UI.
+</Note>

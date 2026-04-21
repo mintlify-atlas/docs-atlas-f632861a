@@ -1,0 +1,138 @@
+---
+title: "Assistant Workspace: Persistent Persona and Memory"
+description: "Set up a workspace directory so your assistant learns your preferences through persona files, a 13-question onboarding, daily check-ins, and memory search."
+---
+
+The Assistant Workspace is a directory on your machine that your assistant treats as its long-term memory. It holds persona files, a user profile, behavioral rules, and a growing record of notes and memories. Every time you open a conversation in that directory, CodePilot injects the workspace content into the system prompt so your assistant knows who you are and how you like to work.
+
+## The four core files
+
+When you set up an Assistant Workspace, CodePilot creates four Markdown files at the workspace root:
+
+<CardGroup cols={2}>
+  <Card title="soul.md" icon="sparkles">
+    Defines your assistant's personality: tone, communication style, areas of expertise, and how it should interact with you. Populated during onboarding and editable at any time.
+  </Card>
+  <Card title="user.md" icon="user">
+    Your personal profile: name, role, skills, preferred tools, and working style. Keeps the assistant from re-asking the same questions across sessions. Updated by daily check-ins.
+  </Card>
+  <Card title="claude.md" icon="list">
+    Behavioral rules and constraints for the assistant: what it should and should not do, formatting preferences, and project-specific guidelines. Think of it as a persistent CLAUDE.md that travels with your workspace.
+  </Card>
+  <Card title="memory.md" icon="database">
+    Append-only long-term memory. Stable facts and preferences extracted from your daily check-ins are promoted here. Protected against duplication — each entry is written at most once.
+  </Card>
+</CardGroup>
+
+## Directory structure
+
+```text
+workspace/
+├── soul.md                    # Personality and style
+├── user.md                    # User profile
+├── claude.md                  # Behavioral rules
+├── memory.md                  # Long-term memory (append-only)
+├── memory/
+│   └── daily/                 # Episodic daily memories
+│       ├── 2026-04-21.md
+│       └── archive.md         # Summaries of older daily entries
+└── .assistant/
+    ├── state.json             # Onboarding status, last check-in date
+    ├── config.json            # Workspace configuration
+    ├── taxonomy.json          # Directory role classifications
+    └── index/
+        ├── manifest.jsonl     # File-level metadata index
+        ├── chunks.jsonl       # Markdown chunk index
+        └── hotset.json        # Frequently accessed files
+```
+
+The `.assistant/` subdirectory stores internal state and index files. You generally do not need to edit these manually.
+
+## Setting up your workspace
+
+<Steps>
+  <Step title="Choose a directory">
+    Go to **Settings → Assistant** and click the workspace path field. Enter or browse to the directory you want to use. It can be an existing directory or a new path — CodePilot will create it if it does not exist.
+  </Step>
+  <Step title="Enable onboarding">
+    Toggle **Enable Onboarding** to on. CodePilot will initialize the workspace files and mark onboarding as pending. The next time you open a conversation in that directory, the onboarding flow starts automatically.
+  </Step>
+  <Step title="Save">
+    Click **Save**. CodePilot creates `soul.md`, `user.md`, `claude.md`, `memory.md`, and the `.assistant/` directory at the workspace root.
+  </Step>
+  <Step title="Open the workspace conversation">
+    Create a new conversation and set the working directory to your workspace path. The onboarding flow will begin within a few seconds of the conversation opening.
+  </Step>
+</Steps>
+
+## Onboarding
+
+The onboarding flow is a 13-question conversational interview that runs once when you first set up your workspace. The assistant asks about:
+
+- Your name, role, and background
+- Your preferred working style and communication preferences
+- The tools and languages you use most
+- How you like the assistant to respond and present information
+- Your organization preferences for notes and memory
+- Your preferred inbox directory and archival policy
+
+When the interview is complete, the assistant generates the initial `soul.md`, `user.md`, `claude.md`, `memory.md`, `config.json`, and `taxonomy.json` files in one step. You can re-run onboarding at any time from **Settings → Assistant → Reset Onboarding**.
+
+<Tip>
+Answer the onboarding questions as specifically as you can. The more detail you provide, the more tailored the assistant's behavior will be in future sessions.
+</Tip>
+
+## Daily check-ins
+
+Once onboarding is complete, CodePilot triggers a lightweight three-question check-in the first time you open the workspace conversation each day. The check-in asks:
+
+1. What are you working on or focusing on today?
+2. Anything notable from yesterday worth remembering?
+3. Any changes to your preferences or context?
+
+When you answer, CodePilot does three things in parallel:
+
+- Writes a dated entry to `memory/daily/<date>.md` (episodic memory).
+- Promotes stable new facts to `memory.md` (long-term memory), with deduplication.
+- Updates `user.md` to reflect any changed preferences or context.
+
+Older daily entries are automatically summarized and archived to `memory/daily/archive.md` after the configured retention period.
+
+<Note>
+Daily check-ins only trigger once per day per workspace. Opening multiple conversations on the same day will not trigger the check-in again.
+</Note>
+
+## How the workspace is injected
+
+When you open a conversation whose working directory matches your configured workspace path, CodePilot builds a system prompt section from your workspace files. The injection process:
+
+1. **Incremental indexing** — CodePilot scans the workspace for files modified since the last index run and updates the internal chunk index. Only changed files are reprocessed, so large workspaces do not slow down the first message.
+2. **Semantic search** — Your message is used as a search query against the indexed workspace. The most relevant content is retrieved and included alongside the core files.
+3. **Prompt assembly** — The core files (`soul.md`, `user.md`, `claude.md`, `memory.md`) plus recent daily memories and retrieved results are assembled under an `<assistant-workspace>` XML tag. The total budget is capped at **40,000 characters**.
+
+File content is truncated at 8,000 characters per file (first 6,000 characters, then a truncation marker, then the last 1,800 characters) to fit large files within the budget.
+
+## Memory search
+
+CodePilot uses keyword-based retrieval with CJK bigram support to find relevant workspace content for each message. Files are scored by title, tags, headings, and body text matches. Frequently accessed files receive a ranking boost through a hotset mechanism, so the content you use most rises to the top automatically.
+
+You can search the workspace index manually from the **Settings → Assistant → File Index** tab, or trigger a full reindex if you have made bulk changes outside of CodePilot.
+
+## Settings tabs
+
+The **Settings → Assistant** panel includes four tabs for managing your workspace:
+
+<AccordionGroup>
+  <Accordion title="File status">
+    Shows whether each of the four core files exists and its current size. Includes a button to refresh the auto-generated `README.ai.md` and `PATH.ai.md` directory overview files.
+  </Accordion>
+  <Accordion title="Taxonomy">
+    Displays the directory role classifications inferred from your workspace structure (e.g., notes, journal, archive, inbox). CodePilot uses these to suggest where to save new captures and whether to reorganize directories over time.
+  </Accordion>
+  <Accordion title="File index">
+    Shows index statistics: total files indexed, number of chunks, stale file count, and the timestamp of the last index run. Includes a **Reindex** button to force a full rebuild.
+  </Accordion>
+  <Accordion title="Organization">
+    Provides an **Archive old memories** action that summarizes daily entries older than the configured retention period and moves them to `archive.md`.
+  </Accordion>
+</AccordionGroup>

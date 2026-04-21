@@ -1,0 +1,132 @@
+---
+title: "Task Scheduler: Schedule and Automate AI Agent Tasks"
+description: "Schedule AI agent tasks to run automatically using cron expressions or fixed intervals. Tasks persist across restarts and post results to your conversations."
+---
+
+The Task Scheduler lets you define AI tasks that run automatically on a schedule — at a fixed time each morning, every hour, once at a specific moment, or on any pattern a cron expression can describe. Tasks survive app restarts and run even while you're away. When a task completes, the result appears as an assistant message in the linked conversation.
+
+## How the scheduler works
+
+CodePilot runs a lightweight polling loop every 10 seconds that checks SQLite for tasks whose `next_run` time has passed. When a due task is found, it executes the task's prompt against your configured AI provider using a non-streaming text generation call. Execution is fire-and-forget — the poll loop continues without waiting for any individual task to finish.
+
+Tasks are stored in `~/.codepilot/codepilot.db` (SQLite, WAL mode) and survive app restarts. If the app was closed when a one-shot task was due, CodePilot detects the missed task on next launch and runs it immediately, notifying you in the conversation.
+
+## Creating a scheduled task
+
+<Steps>
+  <Step title="Open the Task Scheduler">
+    Click **Scheduler** in the sidebar. The scheduler page shows all your tasks and their next run times.
+  </Step>
+  <Step title="Click New Task">
+    Click the **New Task** button. A creation form appears on the right side of the screen.
+  </Step>
+  <Step title="Name your task and write a prompt">
+    Give the task a descriptive name (e.g., "Morning standup summary") and enter the prompt the AI will receive when it runs. Write the prompt as if you were sending it in a conversation.
+  </Step>
+  <Step title="Choose a schedule type">
+    Select **Cron**, **Interval**, or **Once** from the schedule type dropdown, then enter the schedule value (see below).
+  </Step>
+  <Step title="Link to a session (optional)">
+    Optionally select a conversation session. The task result will appear as an assistant message in that session. If no session is linked, CodePilot posts the result to the most recent session in your workspace directory.
+  </Step>
+  <Step title="Save">
+    Click **Save**. The task activates immediately and shows its next scheduled run time.
+  </Step>
+</Steps>
+
+## Schedule types
+
+<Tabs>
+  <Tab title="Cron">
+    Cron expressions give you precise control over when tasks run. CodePilot uses a standard 5-field cron format:
+
+    ```text
+    ┌─────── minute (0–59)
+    │ ┌───── hour (0–23)
+    │ │ ┌─── day of month (1–31)
+    │ │ │ ┌─ month (1–12)
+    │ │ │ │ ┌ day of week (0–7, 0 and 7 = Sunday)
+    │ │ │ │ │
+    * * * * *
+    ```
+
+    **Common examples:**
+
+    | Expression | Meaning |
+    |---|---|
+    | `0 9 * * 1-5` | Weekdays at 9:00 AM |
+    | `0 8 * * *` | Every day at 8:00 AM |
+    | `*/30 * * * *` | Every 30 minutes |
+    | `0 9 1 * *` | First day of each month at 9 AM |
+    | `0 18 * * 5` | Every Friday at 6:00 PM |
+
+    CodePilot scans up to 4 years ahead to find the next matching time. If no match exists within 4 years (e.g., `0 9 30 2 *` — February 30th), the task is automatically paused.
+  </Tab>
+  <Tab title="Interval">
+    Intervals repeat a task at a fixed cadence using a duration string:
+
+    | Value | Meaning |
+    |---|---|
+    | `30m` | Every 30 minutes |
+    | `2h` | Every 2 hours |
+    | `1d` | Every day |
+    | `90s` | Every 90 seconds |
+
+    The format is a number followed by `s` (seconds), `m` (minutes), `h` (hours), or `d` (days). Interval tasks use anchor-based scheduling — if a run is missed, the next run is calculated from the last successful run time, not the current time. This prevents a burst of catch-up runs after the app restarts.
+
+    <Tip>
+    A small deterministic jitter (up to 10% of the interval, maximum 15 minutes) is added to each task's next run time. This prevents many tasks with the same interval from all firing at once.
+    </Tip>
+  </Tab>
+  <Tab title="Once">
+    One-shot tasks run a single time at a specific date and time, then mark themselves as `completed`. Use this for reminders, delayed actions, or timed follow-ups.
+
+    If the app is closed when a one-shot task is due, CodePilot runs it immediately on next launch and posts a notification message in the linked session explaining the delay.
+  </Tab>
+</Tabs>
+
+## Task lifecycle and error handling
+
+<CardGroup cols={2}>
+  <Card title="Active" icon="circle-play">
+    The task is scheduled and will run at `next_run`. Normal state for all recurring tasks.
+  </Card>
+  <Card title="Paused" icon="circle-pause">
+    The task will not run until you resume it. Also set automatically when a cron expression has no valid future occurrence.
+  </Card>
+  <Card title="Completed" icon="circle-check">
+    A one-shot task that has fired and finished. Recurring tasks never enter this state.
+  </Card>
+  <Card title="Disabled" icon="circle-xmark">
+    Automatically set after 10 consecutive execution failures, or after a recurring task has been active for more than 7 days (unless marked permanent).
+  </Card>
+</CardGroup>
+
+When a task fails, CodePilot applies exponential backoff before the next retry:
+
+| Failure count | Next retry delay |
+|---|---|
+| 1 | 30 seconds |
+| 2 | 1 minute |
+| 3 | 5 minutes |
+| 4+ | 15 minutes |
+
+After 10 consecutive failures the task is automatically disabled, and an error message is posted to the linked conversation.
+
+## Task persistence and execution context
+
+Tasks are stored in SQLite and survive app restarts. The scheduler does not require CodePilot to be in focus or the conversation to be open — tasks run in the background in the Next.js server process.
+
+Task prompts are executed against whichever AI provider you have configured as active. The execution is concise and non-streaming: the AI receives your prompt with a brief system message noting the task name and current time, and returns a text response (capped at 1,000 tokens).
+
+<Note>
+The task scheduler uses your default AI provider. If no provider credentials are configured when a task fires, the execution fails and CodePilot applies the backoff schedule. Configure a provider in **Settings > Providers** to ensure tasks can execute.
+</Note>
+
+## Notifications
+
+Enable **Notify on complete** when creating a task to receive a system notification when it finishes (or fails). Notifications appear as Electron desktop notifications and, if you have a Bridge channel configured, can also be delivered via Telegram, Discord, or other connected platforms.
+
+## Auto-expiry
+
+Recurring tasks that are not marked as permanent are automatically disabled after 7 days. This prevents forgotten tasks from running indefinitely. To keep a task running beyond 7 days, enable the **Permanent** toggle when creating or editing the task.

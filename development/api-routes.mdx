@@ -1,0 +1,197 @@
+---
+title: "Internal API Routes Reference — 52 REST Endpoints"
+description: "Reference for CodePilot's internal REST endpoints, grouped by resource: chat, providers, MCP, skills, Bridge, media, git, tasks, and diagnostics."
+---
+
+CodePilot exposes an internal REST API implemented as Next.js App Router route handlers under `src/app/api/`. These endpoints are consumed exclusively by the Electron-hosted frontend — they are not a public API and have no versioning or authentication. All routes run on the Node.js runtime and have direct access to the SQLite database and filesystem.
+
+<Note>
+These are internal APIs. They are not designed for external consumption and may change between releases without notice.
+</Note>
+
+## Route groups
+
+### Chat (`/api/chat`)
+
+The main AI interaction surface. The root `POST /api/chat` is the most important endpoint in the codebase — it drives all AI streaming.
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/chat` | Send a message and stream the Claude Agent SDK response via SSE |
+| `GET/POST/DELETE` | `/api/chat/sessions` | List, create, or manage chat sessions |
+| `GET/PATCH/DELETE` | `/api/chat/sessions/[id]` | Read, update, or delete a specific session |
+| `GET` | `/api/chat/sessions/by-cwd` | Look up the most recent session for a working directory |
+| `POST` | `/api/chat/messages` | Persist a message to the DB without triggering the model |
+| `PUT` | `/api/chat/messages` | Update an existing message's content |
+| `POST` | `/api/chat/interrupt` | Abort the active stream for a session |
+| `POST` | `/api/chat/rewind` | Rewind a session to a previous checkpoint |
+| `GET/PUT` | `/api/chat/mode` | Get or set the interaction mode for a session |
+| `GET/PUT` | `/api/chat/model` | Get or set the model for a session |
+| `GET/POST` | `/api/chat/permission` | Read or resolve a pending tool permission request |
+| `POST` | `/api/chat/structured` | Request a structured (non-streaming) AI response |
+
+#### Example: `POST /api/chat/messages`
+
+Persists a message directly to the database. Used by image-gen mode to write messages without invoking the model.
+
+**Request body:**
+
+```json
+{
+  "session_id": "a1b2c3d4e5f6...",
+  "role": "user",
+  "content": "[{\"type\":\"text\",\"text\":\"Generate a landscape image\"}]",
+  "token_usage": null
+}
+```
+
+**Success response (200):**
+
+```json
+{
+  "message": {
+    "id": "f7e8d9c0b1a2...",
+    "session_id": "a1b2c3d4e5f6...",
+    "role": "user",
+    "content": "[{\"type\":\"text\",\"text\":\"Generate a landscape image\"}]",
+    "token_usage": null,
+    "created_at": "2026-04-21 12:34:56"
+  }
+}
+```
+
+**Error responses:** `400` if required fields are missing, `404` if the session does not exist.
+
+### Providers (`/api/providers`)
+
+Manages AI provider configuration.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET/POST` | `/api/providers` | List all providers or create a new one |
+| `GET/PATCH/DELETE` | `/api/providers/[id]` | Read, update, or delete a provider |
+| `GET/POST` | `/api/providers/models` | List or sync available models for a provider |
+| `POST` | `/api/providers/test` | Test provider connectivity |
+| `POST` | `/api/providers/set-default` | Set the default provider |
+| `GET` | `/api/providers/options` | Get provider-specific UI options |
+
+### Plugins and MCP (`/api/plugins`)
+
+Manages MCP (Model Context Protocol) server integrations.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET/POST` | `/api/plugins` | List installed plugins or add a new one |
+| `GET/PATCH/DELETE` | `/api/plugins/[id]` | Read, update, or remove a plugin |
+| `GET/POST` | `/api/plugins/mcp` | List or control MCP server instances |
+
+### Skills (`/api/skills`)
+
+Manages reusable skill definitions.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET/POST` | `/api/skills` | List or create skills |
+| `GET/PATCH/DELETE` | `/api/skills/[name]` | Read, update, or delete a skill |
+| `GET` | `/api/skills/marketplace` | Fetch the skills.sh marketplace listing |
+| `GET` | `/api/skills/search` | Search installed skills |
+
+### Settings (`/api/settings`)
+
+Application-wide settings and per-channel Bridge configuration.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET/PUT` | `/api/settings` | Read or write global app settings |
+| `GET/PUT` | `/api/settings/app` | Read or write app-specific settings |
+| `GET/PUT` | `/api/settings/workspace` | Read or write workspace settings |
+| `GET/PUT` | `/api/settings/telegram` | Telegram Bridge credentials and config |
+| `POST` | `/api/settings/telegram/verify` | Verify Telegram token and optionally register bot commands |
+| `GET/PUT` | `/api/settings/feishu` | Feishu Bridge credentials and config |
+| `POST` | `/api/settings/feishu/verify` | Test Feishu credentials |
+| `GET/PUT` | `/api/settings/discord` | Discord Bridge config |
+| `GET/PUT` | `/api/settings/qq` | QQ Bridge config |
+| `GET/PUT` | `/api/settings/weixin` | WeChat global settings |
+| `GET` | `/api/settings/weixin/accounts` | List WeChat bot accounts |
+| `PATCH/DELETE` | `/api/settings/weixin/accounts/[accountId]` | Enable, disable, or delete a WeChat account |
+| `POST` | `/api/settings/weixin/login/start` | Start WeChat QR-code login session |
+| `POST` | `/api/settings/weixin/login/wait` | Poll QR-code login status |
+
+### Bridge (`/api/bridge`)
+
+Controls the IM Bridge subsystem lifecycle.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/bridge` | Return current `BridgeStatus` (read-only) |
+| `POST` | `/api/bridge` | Start, stop, or auto-start the Bridge |
+| `GET` | `/api/bridge/channels` | List active channel adapters |
+| `GET/PUT` | `/api/bridge/settings` | Read or write Bridge runtime settings |
+| `POST` | `/api/bridge/feishu/register/start` | Begin Feishu App Registration device flow |
+| `POST` | `/api/bridge/feishu/register/poll` | Poll registration status |
+| `POST` | `/api/bridge/feishu/register/cancel` | Cancel an in-progress registration |
+
+### Media (`/api/media`)
+
+Image generation and the media gallery.
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/media/generate` | Start a single image generation |
+| `GET` | `/api/media/gallery` | List gallery images with filtering and pagination |
+| `GET/PATCH/DELETE` | `/api/media/[id]` | Read, update metadata, or delete a generated image |
+| `GET` | `/api/media/serve` | Serve a local image file by path |
+| `GET/POST` | `/api/media/tags` | List or create media tags |
+| `GET/POST/PATCH` | `/api/media/jobs` | Manage batch generation jobs |
+
+### Files and uploads (`/api/files`, `/api/uploads`)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/files` | Browse the file system (directory listing + file preview) |
+| `POST` | `/api/uploads` | Upload a file attachment for a chat message |
+| `GET` | `/api/uploads` | Retrieve a previously uploaded file by path |
+
+### Git (`/api/git`)
+
+Local git operations for the project file tree panel.
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/git/status` | Working tree status for a directory |
+| `GET` | `/api/git/log` | Commit log |
+| `GET` | `/api/git/branches` | List branches |
+| `POST` | `/api/git/checkout` | Check out a branch or commit |
+| `POST` | `/api/git/commit` | Create a commit |
+| `POST` | `/api/git/push` | Push to remote |
+| `GET` | `/api/git/commit-detail` | Get diff for a specific commit |
+| `GET` | `/api/git/worktrees` | List worktrees |
+
+### Tasks and scheduling (`/api/tasks`)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET/POST` | `/api/tasks` | List all tasks or create a new one |
+| `GET/PATCH/DELETE` | `/api/tasks/[id]` | Read, update, or delete a task |
+| `GET` | `/api/tasks/list` | List tasks for a specific session |
+| `POST` | `/api/tasks/notify` | Trigger a task completion notification |
+| `GET/POST/PATCH/DELETE` | `/api/tasks/schedule` | Manage scheduled (cron/interval) tasks |
+
+### Workspace, usage, and diagnostics
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/workspace` | Read workspace persona files (`soul.md`, `user.md`, etc.) |
+| `GET` | `/api/usage/stats` | Token usage and cost statistics |
+| `GET/POST` | `/api/doctor` | Run provider diagnostics and return structured results |
+| `GET` | `/api/health` | Simple health check endpoint |
+| `GET` | `/api/dashboard` | Aggregated stats for the usage dashboard |
+| `GET/POST` | `/api/search` | Search across sessions and messages |
+| `GET` | `/api/sdk` | Claude SDK version and status |
+| `POST` | `/api/setup` | Initial setup and onboarding actions |
+| `POST` | `/api/claude-auth` | Claude CLI authentication flow |
+| `GET` | `/api/claude-sessions` | Import Claude CLI `.jsonl` session history |
+| `GET` | `/api/claude-status` | Check Claude CLI installation status |
+| `POST` | `/api/claude-upgrade` | Trigger Claude CLI upgrade |
+| `GET/POST` | `/api/cli-tools` | Manage custom CLI tools |
+| `GET` | `/api/openai-oauth` | OpenAI OAuth integration |

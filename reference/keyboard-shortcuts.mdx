@@ -1,0 +1,78 @@
+---
+title: "Keyboard Shortcuts Reference for CodePilot Desktop"
+description: "All keyboard shortcuts in CodePilot: message input, session management, navigation, permission prompts, and split-screen controls."
+---
+
+CodePilot is designed for keyboard-first use. Most common actions have a keyboard shortcut so you can stay focused on your conversation without reaching for the mouse.
+
+## Message input
+
+These shortcuts work when the message textarea is focused.
+
+| Action | macOS | Windows / Linux |
+|---|---|---|
+| Send message | `Enter` | `Enter` |
+| Insert a newline | `Shift+Enter` | `Shift+Enter` |
+| Dismiss command/mention popover | `Escape` | `Escape` |
+| Remove last command badge | `Backspace` (when input is empty) | `Backspace` (when input is empty) |
+| Navigate command picker up | `↑` | `↑` |
+| Navigate command picker down | `↓` | `↓` |
+| Select highlighted command | `Enter` | `Enter` |
+| Open slash command picker | Type `/` | Type `/` |
+| Open file mention picker | Type `@` | Type `@` |
+| Open CLI tools picker | Type `!` | Type `!` |
+
+<Note>
+When a command badge is active (shown above the input), pressing `Backspace` on an empty input removes the badge rather than deleting text. Press `Escape` to dismiss a popover without selecting anything.
+</Note>
+
+## Session management
+
+| Action | macOS | Windows / Linux |
+|---|---|---|
+| New conversation | Click **+** in the sidebar or use the session menu | Click **+** in the sidebar or use the session menu |
+| Stop generation | Click **Stop** button (square icon) in the message toolbar | Click **Stop** button (square icon) in the message toolbar |
+| Pause / resume session | Use the session action menu in the chat header | Use the session action menu in the chat header |
+
+## Navigation
+
+| Action | How to do it |
+|---|---|
+| Search across sessions | Click the search icon in the sidebar or type in the search field |
+| Switch between open sessions | Click a session in the chat list |
+| Open split-screen | Click **Split Screen** from the session context menu or sidebar button |
+| Close split pane | Click **Close Split** in the split-screen header |
+
+## Settings and pages
+
+| Destination | How to navigate |
+|---|---|
+| Settings | Click the gear icon in the sidebar navigation |
+| MCP Servers | Click **MCP** in the sidebar |
+| Skills | Click **Skills** in the sidebar |
+| Bridge | Click **Bridge** in the sidebar |
+| Gallery | Click **Gallery** in the sidebar |
+
+<Tip>
+Use the global search bar (sidebar search field) to find sessions by content. Prefix your query with `session:`, `message:`, or `file:` to narrow the scope to a specific type of result.
+</Tip>
+
+## Permission prompts
+
+When CodePilot asks for approval before a tool action, you can respond without using the mouse:
+
+| Action | How |
+|---|---|
+| Allow for this session | Click **Allow for Session** in the permission prompt |
+| Allow once | Click **Allowed** in the prompt |
+| Deny | Click **Denied** in the prompt |
+
+<Note>
+To skip all permission prompts for trusted tasks, go to **Settings → General** and enable **Auto-approve All Actions**. Use this option with caution — it allows CodePilot to run shell commands, edit files, and make network requests without confirmation.
+</Note>
+
+## Tips for power users
+
+- Press `Escape` in the message input to close any open popover (slash commands, file mentions, CLI tools) without sending a message.
+- When using split-screen, each pane has its own independent message input. Keyboard shortcuts apply to whichever pane currently has focus.
+- The `Shift+Enter` shortcut for a newline works the same way regardless of whether a popover is open.

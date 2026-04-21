@@ -1,0 +1,112 @@
+---
+title: "Build and Package CodePilot for Production Release"
+description: "How to create production builds, package macOS/Windows/Linux installers with electron-builder, and trigger the CI/CD release pipeline."
+---
+
+CodePilot uses electron-builder to package the app for macOS, Windows, and Linux. The build pipeline compiles Next.js into a standalone server, then wraps it together with Electron into a distributable. This page explains how to run production builds locally and how the automated release process works.
+
+## Production build commands
+
+<CardGroup cols={2}>
+  <Card title="Next.js only" icon="code">
+    ```bash
+    npm run build
+    ```
+    Compiles the Next.js app to `.next/`. Useful for verifying the frontend build without packaging Electron.
+  </Card>
+  <Card title="Full Electron build" icon="package">
+    ```bash
+    npm run electron:build
+    ```
+    Runs `next build` then `scripts/build-electron.mjs`. Produces the Electron distributable in `dist-electron/`.
+  </Card>
+</CardGroup>
+
+### Before building
+
+Always clean the previous build artifacts to avoid stale files:
+
+```bash
+rm -rf release/ .next/
+```
+
+## Platform packaging
+
+Use these commands to produce installer artifacts for each platform:
+
+| Command | Output | Architectures |
+|---|---|---|
+| `npm run electron:pack:mac` | macOS DMG | arm64 + x64 |
+| `npm run electron:pack:win` | Windows NSIS installer (`.exe`) | x64 + arm64 |
+| `npm run electron:pack:linux` | AppImage + `.deb` + `.rpm` | x64 + arm64 |
+
+Each command runs `npm run electron:build` first, so you do not need to run it separately.
+
+<Warning>
+Platform packaging must be run on the target platform. You cannot build a macOS DMG on a Linux machine, for example. Cross-platform builds are handled by CI/CD.
+</Warning>
+
+### macOS notes
+
+macOS builds are code-signed with a Developer ID certificate but are not notarized. Gatekeeper may prompt users on first launch. See the README for workaround instructions.
+
+## How the Electron server works
+
+In production, Electron does not serve the Next.js app from the filesystem. Instead:
+
+1. `electron/main.ts` forks a **Next.js standalone server** as a child process.
+2. The server binds to `127.0.0.1` on a **random free port** (not a fixed port).
+3. Electron opens the main `BrowserWindow` pointing at that local address.
+
+This means the Next.js API routes run as a real Node.js HTTP server inside the Electron process tree, with full access to the filesystem and SQLite.
+
+## The `after-pack.js` script
+
+`scripts/after-pack.js` is an electron-builder `afterPack` hook. Its job is to **recompile `better-sqlite3` for the Electron ABI** after the app is packaged. SQLite's native module must match the exact Node.js ABI version that ships with Electron — the version installed by `npm install` targets plain Node.js, which is different.
+
+The script runs automatically during `electron:pack:*` commands. You do not need to invoke it manually.
+
+## CI/CD and releases
+
+Pushing a tag that matches the `v*` pattern triggers the GitHub Actions workflow:
+
+<Steps>
+  <Step title="Update the version">
+    Bump the version in `package.json`, then run `npm install` to sync `package-lock.json`.
+
+    ```bash
+    # Edit package.json version field, then:
+    npm install
+    git add package.json package-lock.json
+    git commit -m "chore: release v0.53.0"
+    ```
+  </Step>
+  <Step title="Push the tag">
+    ```bash
+    git tag v0.53.0
+    git push origin v0.53.0
+    ```
+
+    The `git push` for the tag is what triggers CI. Do not push tags without explicit instruction.
+  </Step>
+  <Step title="CI builds all platforms">
+    GitHub Actions runs a matrix build on macOS, Windows, and Linux runners, producing:
+    - macOS DMG (arm64 + x64)
+    - Windows NSIS installer
+    - Linux AppImage, `.deb`, `.rpm`
+  </Step>
+  <Step title="GitHub Release is created automatically">
+    The workflow creates a GitHub Release and attaches all artifacts. Do not create releases manually.
+  </Step>
+</Steps>
+
+<Warning>
+Never run `git push --force` on `main` or push a `v*` tag without explicit confirmation from the project maintainer. Tags trigger live releases.
+</Warning>
+
+## Release notes format
+
+When a release is created, the release body should include:
+
+- **Title:** `CodePilot v{version}`
+- **Sections:** What's changed, Downloads, Installation, Requirements, Changelog

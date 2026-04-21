@@ -1,0 +1,156 @@
+---
+title: "Skills: Create Reusable AI Behaviors and Slash Commands"
+description: "Create custom slash commands, agent instructions, and reusable AI behaviors in CodePilot. Install from the skills.sh community marketplace."
+---
+
+Skills are reusable AI behaviors you define once and invoke on demand. A skill can be a slash command that transforms how the AI responds, a set of agent instructions scoped to a project, or a command that runs a specific SDK operation. Once defined, skills appear in the `/` command menu in any conversation.
+
+## Skill types
+
+CodePilot recognizes four skill kinds, defined in the `SkillKind` type:
+
+| Kind | What it does |
+|---|---|
+| `agent_skill` | Injects a behavior or persona into the agent for the current turn |
+| `slash_command` | A user-invocable command that appears in the `/` menu |
+| `sdk_command` | Wraps a specific Claude Code SDK operation |
+| `codepilot_command` | A built-in CodePilot command (e.g., `/help`, `/cost`) |
+
+Most custom skills you create will be `slash_command` or `agent_skill`.
+
+## Skill scopes
+
+Skills are discovered from three locations:
+
+<CardGroup cols={3}>
+  <Card title="Global skills" icon="earth-americas">
+    Stored in CodePilot's database. Available in every conversation, regardless of the working directory.
+  </Card>
+  <Card title="Project skills" icon="folder">
+    Stored as `.md` files in the `.claude/` directory at your project root. Loaded automatically when a conversation uses that project directory.
+  </Card>
+  <Card title="Installed skills" icon="download">
+    Downloaded from the skills.sh marketplace or another external source. Stored alongside global skills and tracked in a lock file.
+  </Card>
+</CardGroup>
+
+## Skill file format
+
+Skills are Markdown files with YAML frontmatter. The frontmatter declares metadata; the body is the prompt content injected into the conversation.
+
+```markdown my-skill.md
+---
+name: summarize
+description: Summarize the current file or selection concisely
+allowed-tools: [Read]
+context: inline
+user-invocable: true
+when_to_use: When the user wants a quick summary of a file or block of text
+---
+
+Read the file or text provided and produce a concise summary in three bullet points.
+Focus on the most important information. Avoid filler phrases.
+```
+
+### Frontmatter fields
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | string | Skill name. Also used as the slash command (e.g., `name: summarize` → `/summarize`). Falls back to filename if omitted. |
+| `description` | string | Shown in the `/` command picker and skill list. |
+| `allowed-tools` | array | Tools the skill may use. Empty means all tools are allowed. |
+| `context` | `inline` \| `fork` | `inline` injects the skill into the current conversation. `fork` runs it as a sub-agent. |
+| `user-invocable` | boolean | Whether the skill appears in the `/` command menu. Defaults to `true`. |
+| `when_to_use` | string | Optional hint to the model about when to apply this skill automatically. |
+| `arguments` | array | Template variables the user can pass when invoking the command. |
+| `model` | string | Override the model for this skill's execution. |
+| `effort` | string | Override the reasoning effort level (`low`, `medium`, `high`). |
+
+### Skill with arguments
+
+```markdown review.md
+---
+name: review
+description: Review code with a specified focus area
+arguments:
+  - name: focus
+    description: What to focus on (e.g., security, performance, style)
+    required: false
+context: inline
+---
+
+Review the provided code. Focus area: {{focus}}.
+Check for bugs, unclear logic, and opportunities to simplify.
+```
+
+## Creating a custom skill
+
+<Steps>
+  <Step title="Open the Skills page">
+    Click **Skills** in the left sidebar.
+  </Step>
+  <Step title="Click New Skill">
+    Click **New Skill** in the top right. An editor opens with a blank skill template.
+  </Step>
+  <Step title="Write the skill definition">
+    Fill in the frontmatter fields and write the prompt body in Markdown. The `name` field becomes the slash command.
+  </Step>
+  <Step title="Save">
+    Click **Save**. The skill is immediately available in the `/` command menu across all conversations.
+  </Step>
+</Steps>
+
+<Tip>Keep skill prompts focused. A skill that does one thing well is more reliable than one that tries to handle many cases.</Tip>
+
+## Using skills in a conversation
+
+Type `/` in the message input to open the command picker. Start typing the skill name to filter the list. Select a skill to attach it as a badge above the input — the skill's instructions are injected when you send your next message.
+
+Skills with `arguments` show a fill-in prompt before attaching. Provide the argument values and press Enter to confirm.
+
+<Note>Built-in CodePilot commands (`/help`, `/clear`, `/cost`, `/compact`, `/doctor`, `/review`) also appear in the `/` menu. These are `codepilot_command` kind and cannot be overridden by custom skills.</Note>
+
+## Project skills in `.claude/`
+
+To scope a skill to a specific project, create a `.md` file in the `.claude/` directory at the project root. CodePilot loads these automatically when a conversation's working directory is inside that project.
+
+```
+my-project/
+├── .claude/
+│   ├── pr-description.md   # project skill
+│   └── lint-fix.md         # project skill
+├── src/
+└── package.json
+```
+
+Project skills appear in the `/` menu alongside global skills. They are not visible when working in other projects.
+
+## Installing skills from the marketplace
+
+The [skills.sh](https://skills.sh) marketplace hosts community-contributed skills. You can browse and install them directly from the Skills page.
+
+<Steps>
+  <Step title="Open the Skills page">
+    Click **Skills** in the left sidebar.
+  </Step>
+  <Step title="Open the marketplace tab">
+    Click the **Marketplace** tab to browse available skills.
+  </Step>
+  <Step title="Install a skill">
+    Click **Install** next to the skill you want. CodePilot downloads the skill files and records the source in `skills.lock`.
+  </Step>
+  <Step title="Verify installation">
+    Switch to the **Installed** tab to confirm the skill appears. Type `/` in any conversation to verify it shows up in the command menu.
+  </Step>
+</Steps>
+
+The `skills.lock` file records each installed skill's source URL, folder hash, and install timestamp. This lets you track which skills came from the marketplace and update them when new versions are published.
+
+## Managing existing skills
+
+From the Skills page you can:
+
+- **Enable / disable** a skill without deleting it — disabled skills are hidden from the `/` command menu
+- **Edit** the frontmatter and body directly in the built-in editor
+- **Delete** a skill permanently
+- **View installed source** for marketplace skills to check where they came from

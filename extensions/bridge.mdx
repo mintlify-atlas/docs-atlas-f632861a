@@ -1,0 +1,228 @@
+---
+title: "Bridge: Control CodePilot from Telegram, Discord, and More"
+description: "Send messages from Telegram, Feishu, Discord, QQ, or WeChat and get CodePilot AI responses on your desktop. Set up per-channel bot credentials."
+---
+
+Bridge is CodePilot's remote-control feature. Once configured, you can send a message from your phone or any connected IM client and CodePilot runs the request on your desktop — using the same AI session, same project context, and the same tools the desktop app uses. Responses are delivered back to the IM thread.
+
+Bridge is useful when you want to trigger a task while away from your desk, review AI output in a chat interface, or integrate CodePilot into an existing team workflow.
+
+## Supported channels
+
+<CardGroup cols={2}>
+  <Card title="Telegram" icon="paper-plane">
+    Bot API with long polling. Supports text, images, and albums. Live streaming preview via `sendMessageDraft`.
+  </Card>
+  <Card title="Feishu / Lark" icon="message">
+    WebSocket-based connection. Streaming card UI with tool progress indicators. Supports images, files, audio, and video.
+  </Card>
+  <Card title="Discord" icon="discord">
+    Gateway WebSocket via discord.js. Native Markdown rendering. Inline permission buttons.
+  </Card>
+  <Card title="QQ" icon="comment">
+    Long-polling based setup. Text-only output.
+  </Card>
+  <Card title="WeChat" icon="mobile">
+    QR code login flow with multi-account support. Text-only output.
+  </Card>
+</CardGroup>
+
+## How Bridge works
+
+When you send a message to a Bridge channel, CodePilot:
+
+1. Receives the message through the channel's connection (polling or WebSocket)
+2. Routes it to an existing CodePilot session or creates a new one
+3. Runs the prompt through `streamClaude()` — the same pipeline the desktop UI uses
+4. Delivers the response back to the IM thread, splitting long messages to fit platform limits
+
+Each IM user and thread is bound to exactly one CodePilot session. If you send from the same chat, you continue the same conversation. Type `/new` to start a fresh session.
+
+## Enabling Bridge
+
+<Steps>
+  <Step title="Open the Bridge page">
+    Click **Bridge** in the left sidebar.
+  </Step>
+  <Step title="Enable the master switch">
+    Toggle **Bridge enabled** at the top of the page. This is the global on/off switch — individual channels also have their own toggles.
+  </Step>
+  <Step title="Configure at least one channel">
+    Expand the channel section you want to use and enter its credentials (see per-channel setup below).
+  </Step>
+  <Step title="Start Bridge">
+    Click **Start**. The status indicator turns green when Bridge is running and all enabled channels are connected.
+  </Step>
+</Steps>
+
+<Note>Bridge runs in-process alongside CodePilot. When you close the CodePilot window, Bridge stays active in the system tray if any channel is enabled. To stop it completely, click **Stop** on the Bridge page or quit the application.</Note>
+
+## Per-channel setup
+
+<AccordionGroup>
+  <Accordion title="Telegram">
+    Telegram Bridge uses the Bot API with long polling. You need a bot token from @BotFather.
+
+    **Create a bot:**
+    1. Open Telegram and start a conversation with [@BotFather](https://t.me/BotFather)
+    2. Send `/newbot` and follow the prompts to choose a name and username
+    3. BotFather sends you a token in the format `123456789:AABBccdd...`
+
+    **Configure in CodePilot:**
+    1. On the Bridge page, expand **Telegram**
+    2. Paste your bot token into the **Bot Token** field
+    3. Optionally add allowed user IDs to the **Allowed Users** field (comma-separated). Leave blank to allow anyone who can message the bot.
+    4. Toggle **Telegram enabled** on
+    5. Click **Save**
+
+    Once Bridge starts, send any message to your bot to begin a conversation.
+
+    **Available commands in Telegram:**
+
+    | Command | Action |
+    |---|---|
+    | `/new [path]` | Start a new session, optionally with a working directory |
+    | `/bind <session_id>` | Attach this chat to an existing CodePilot session |
+    | `/cwd /path` | Switch the working directory |
+    | `/mode plan\|code\|ask` | Change the conversation mode |
+    | `/status` | Show current session status |
+    | `/sessions` | List active sessions |
+    | `/stop` | Interrupt a running task |
+    | `/help` | Show all commands |
+  </Accordion>
+
+  <Accordion title="Feishu / Lark">
+    Feishu Bridge connects via a WebSocket long-connection using the Feishu Open Platform SDK. You can create an app manually or use the one-click registration flow.
+
+    **One-click registration (recommended):**
+    1. On the Bridge page, expand **Feishu**
+    2. Click **Register App** — CodePilot opens the Feishu authorization page in your browser
+    3. Confirm in the browser to create the app with the correct permissions pre-configured
+    4. CodePilot polls for completion and writes the App ID and App Secret automatically
+
+    **Manual setup:**
+    1. Go to the [Feishu Open Platform](https://open.feishu.cn) (or [Lark Developer Portal](https://open.larksuite.com) for Lark)
+    2. Create a new app of type **Custom App**
+    3. Enable the **Robot** capability under **Features**
+    4. Add the `im:message` and `im:message:receive_v1` scopes
+    5. Enable **Event Subscriptions** → **Use long connection to receive events**
+    6. Copy the **App ID** and **App Secret**
+    7. Paste both into the Feishu section on the Bridge page and click **Save**
+
+    **Access control:** By default, any Feishu user who messages the bot can trigger the AI. To restrict access, set **Allowed Users** to a comma-separated list of `open_id` values, or set it to `*` to allow all users explicitly.
+
+    <Note>For Lark (international version), set the **Domain** toggle to **Lark** before saving credentials.</Note>
+  </Accordion>
+
+  <Accordion title="Discord">
+    Discord Bridge uses discord.js with the Gateway WebSocket.
+
+    **Create a Discord bot:**
+    1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
+    2. Click **New Application**, give it a name, and click **Create**
+    3. Go to **Bot** in the left menu and click **Add Bot**
+    4. Under **Privileged Gateway Intents**, enable **Message Content Intent** — this is required for the bot to read message text
+    5. Click **Reset Token** to generate a bot token and copy it
+
+    **Invite the bot to your server:**
+    1. Go to **OAuth2 → URL Generator**
+    2. Select scopes: `bot`
+    3. Select permissions: **Send Messages**, **Read Message History**, **Add Reactions**
+    4. Copy the generated URL and open it to invite the bot to your server
+
+    **Configure in CodePilot:**
+    1. On the Bridge page, expand **Discord**
+    2. Paste the bot token into **Bot Token**
+    3. Optionally restrict access by entering allowed server IDs or user IDs
+    4. Toggle **Discord enabled** on and click **Save**
+
+    Discord supports inline approval buttons for permission requests. When the AI needs approval to perform an action, it posts a message with **Allow** and **Deny** buttons directly in the chat.
+  </Accordion>
+
+  <Accordion title="QQ">
+    QQ Bridge uses long polling. Configure the bot credentials on the Bridge page under **QQ**, then toggle the channel on and click **Save**.
+
+    QQ delivers text-only responses. Permission approval requests fall back to text commands rather than inline buttons.
+  </Accordion>
+
+  <Accordion title="WeChat">
+    WeChat Bridge uses a QR code login flow with the ilink bot protocol. Multiple WeChat accounts can be active simultaneously.
+
+    **Log in:**
+    1. On the Bridge page, expand **WeChat**
+    2. Click **Add Account** — a QR code appears
+    3. Open WeChat on your phone and scan the QR code
+    4. Once confirmed, the account appears in the accounts list with a green status
+
+    **Enable media (optional):** Toggle **Enable media downloads** to let the AI receive images, files, audio, and video from WeChat messages. When disabled, only text is processed.
+
+    WeChat delivers text-only responses split into segments of up to 4096 characters. Inline buttons are not supported; permission approvals use text commands (`/perm allow <id>`, `/perm deny <id>`).
+
+    <Warning>WeChat sessions expire if the account is logged out or the token becomes invalid. Return to the Bridge page to re-authenticate if the account shows an error status.</Warning>
+  </Accordion>
+</AccordionGroup>
+
+## Session binding
+
+When you send your first message from an IM chat, Bridge automatically creates a new CodePilot session and binds it to that chat. Subsequent messages from the same chat continue the same session.
+
+To bind a chat to an existing session (for example, one you started on the desktop):
+
+```
+/bind <session_id>
+```
+
+You can find a session's ID in CodePilot's session list. Once bound, the IM chat and the desktop session share the same conversation history.
+
+## Permission requests
+
+Some AI actions require your approval — for example, running a terminal command or writing to a file outside the project. When this happens:
+
+- **Telegram, Discord, Feishu:** An inline button card appears in the chat with **Allow**, **Allow for session**, and **Deny** options. Tap a button to respond.
+- **QQ, WeChat:** A text message appears with instructions. Reply with `/perm allow <id>`, `/perm allow_session <id>`, or `/perm deny <id>`.
+
+The AI waits for your response before continuing. If you do not respond, the session stays paused until you interact with it on the desktop or send a decision from the IM client.
+
+## Message delivery
+
+CodePilot adapts its output to each platform's constraints:
+
+| Platform | Format | Max message length |
+|---|---|---|
+| Telegram | HTML (bold, italic, code, blockquote) | 4096 characters per chunk |
+| Feishu | Streaming interactive card with Markdown | No fixed limit per card |
+| Discord | Native Markdown | 2000 characters per chunk |
+| QQ | Plain text | Platform default |
+| WeChat | Plain text | 4096 characters, up to 5 segments |
+
+Long responses are split automatically. If a chunk fails to deliver, CodePilot continues sending the remaining chunks and appends a truncation notice.
+
+## Bridge settings reference
+
+| Setting | Description |
+|---|---|
+| `remote_bridge_enabled` | Global on/off switch for the entire Bridge system |
+| `bridge_auto_start` | Automatically start Bridge when CodePilot launches |
+| `bridge_default_work_dir` | Default working directory for new Bridge sessions |
+| `bridge_default_model` | Default model for new Bridge sessions |
+| `bridge_default_provider_id` | Default provider for Bridge sessions (independent of the global default) |
+| `bridge_telegram_enabled` | Enable or disable the Telegram channel |
+| `bridge_feishu_enabled` | Enable or disable the Feishu channel |
+| `bridge_weixin_enabled` | Enable or disable the WeChat channel |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Bridge shows 'error' status on a channel">
+    Check the channel's credential fields — an expired or invalid token is the most common cause. For Telegram, verify the token with @BotFather. For Feishu, check that the app is still active in the Feishu Open Platform. Click **Restart** after updating credentials.
+  </Accordion>
+  <Accordion title="Messages are received but the AI doesn't respond">
+    Ensure the channel's allowed-users list includes your user ID, or clear it to allow all users. Check that a default model and provider are configured on the Bridge settings page.
+  </Accordion>
+  <Accordion title="WeChat account shows 'session invalid'">
+    The WeChat token expired or the account was logged out. Go to the Bridge page → WeChat → click **Remove** on the affected account, then scan a new QR code to log in again.
+  </Accordion>
+  <Accordion title="Discord bot is online but can't read messages">
+    Make sure **Message Content Intent** is enabled in the Discord Developer Portal under your bot's settings. Without this intent, the bot receives message events with no text content.
+  </Accordion>
+</AccordionGroup>

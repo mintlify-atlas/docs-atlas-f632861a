@@ -1,0 +1,160 @@
+---
+title: "Install CodePilot on macOS, Windows, or Linux Systems"
+description: "Install CodePilot on macOS, Windows, or Linux. Covers Gatekeeper and SmartScreen workarounds, build prerequisites, dev commands, and data directory locations."
+---
+
+CodePilot provides pre-built installers for macOS, Windows, and Linux. Builds are code-signed on macOS but not notarized; Windows and Linux builds are unsigned. This page covers the installation steps and any platform-specific workarounds you may encounter.
+
+## Download
+
+Download the latest release from the [Releases page](https://github.com/op7418/CodePilot/releases).
+
+| Platform | File | Architecture |
+|---|---|---|
+| macOS Apple Silicon | `CodePilot-*-arm64.dmg` | arm64 |
+| macOS Intel | `CodePilot-*-x64.dmg` | x64 |
+| Windows | `CodePilot-*-Setup.exe` | x64 + arm64 |
+| Linux AppImage | `CodePilot-*.AppImage` | x64 + arm64 |
+| Linux Debian/Ubuntu | `CodePilot-*.deb` | x64 + arm64 |
+| Linux Fedora/RHEL | `CodePilot-*.rpm` | x64 + arm64 |
+
+## Platform-specific installation
+
+<Tabs>
+  <Tab title="macOS">
+    CodePilot is code-signed with a Developer ID certificate but not notarized, so Gatekeeper may block the app on first launch.
+
+    <Steps>
+      <Step title="Open the DMG">
+        Double-click the downloaded `.dmg` file and drag **CodePilot.app** to your **Applications** folder.
+      </Step>
+      <Step title="Bypass the Gatekeeper warning">
+        If macOS shows "CodePilot cannot be opened because it is from an unidentified developer", use one of the following options:
+
+        **Option 1 — Right-click to open:**
+        Right-click (or Control-click) `CodePilot.app` in Finder, choose **Open**, then click **Open** in the confirmation dialog.
+
+        **Option 2 — System Settings:**
+        Go to **System Settings → Privacy & Security**, scroll to the **Security** section, and click **Open Anyway** next to the CodePilot entry.
+
+        **Option 3 — Terminal:**
+        ```bash
+        xattr -cr /Applications/CodePilot.app
+        ```
+
+        After running this command, open CodePilot normally.
+      </Step>
+    </Steps>
+
+    <Tip>
+      Option 1 (right-click Open) is the quickest for most users. The Terminal command is useful if you need to repeat this step after an update.
+    </Tip>
+  </Tab>
+  <Tab title="Windows">
+    The CodePilot installer is unsigned, so Windows SmartScreen may block it on first run.
+
+    <Steps>
+      <Step title="Run the installer">
+        Double-click the downloaded `CodePilot-*-Setup.exe`.
+      </Step>
+      <Step title="Bypass the SmartScreen warning">
+        If Windows Defender SmartScreen shows "Windows protected your PC", use one of the following options:
+
+        **Option 1 — Run anyway:**
+        Click **More info** in the SmartScreen dialog, then click **Run anyway**.
+
+        **Option 2 — Disable SmartScreen for app installation:**
+        Go to **Settings → Apps → Advanced app settings**, and under **Choose where to get apps**, select **Anywhere**.
+      </Step>
+      <Step title="Complete the installation">
+        Follow the on-screen installer prompts. CodePilot will launch automatically when the installation finishes.
+      </Step>
+    </Steps>
+
+    <Warning>
+      Changing the SmartScreen setting to allow apps from anywhere reduces Windows protection. Re-enable it after installing CodePilot if you prefer a more restrictive setting.
+    </Warning>
+  </Tab>
+  <Tab title="Linux">
+    Three package formats are available. Choose the one that fits your distribution.
+
+    **AppImage (any distribution):**
+    ```bash
+    chmod +x CodePilot-*.AppImage
+    ./CodePilot-*.AppImage
+    ```
+
+    **Debian / Ubuntu (.deb):**
+    ```bash
+    sudo dpkg -i CodePilot-*.deb
+    ```
+
+    **Fedora / RHEL / openSUSE (.rpm):**
+    ```bash
+    sudo rpm -i CodePilot-*.rpm
+    # or with dnf
+    sudo dnf install CodePilot-*.rpm
+    ```
+
+    <Note>
+      AppImage is the most portable option and does not require root access or package manager integration. It runs directly after marking it executable.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Build from source
+
+Building from source lets you run the latest code or contribute to CodePilot.
+
+### Prerequisites
+
+| Tool | Minimum version | Notes |
+|---|---|---|
+| Node.js | 18+ | [nodejs.org](https://nodejs.org) |
+| npm | 9+ | Ships with Node.js 18 |
+| Git | Any recent version | Required to clone the repository |
+
+### Clone and install
+
+```bash
+git clone https://github.com/op7418/CodePilot.git
+cd CodePilot
+npm install
+```
+
+### Development commands
+
+| Command | Description |
+|---|---|
+| `npm run dev` | Starts the Next.js dev server. Open `http://localhost:3000` in your browser. |
+| `npm run electron:dev` | Starts Next.js and the Electron shell together — the full desktop app in dev mode. |
+| `npm run build` | Produces a production Next.js build. |
+| `npm run electron:build` | Produces a production Next.js build and compiles the Electron main process. |
+| `npm run electron:pack:mac` | Builds a macOS DMG (arm64 + x64). |
+| `npm run electron:pack:win` | Builds a Windows NSIS installer. |
+| `npm run electron:pack:linux` | Builds Linux AppImage, .deb, and .rpm packages. |
+
+<Note>
+  `npm run dev` and `npm run electron:dev` serve the same UI — the difference is whether you use it in a browser tab or in the Electron desktop window with native controls. For most development work, `npm run electron:dev` gives the most accurate representation of the final app.
+</Note>
+
+### Run tests before committing
+
+```bash
+npm run test          # TypeScript type check + unit tests (~4s)
+npm run test:smoke    # Smoke tests — requires a running dev server (~15s)
+npm run test:e2e      # Full end-to-end tests — requires a running dev server (~60s+)
+```
+
+## Data directory
+
+CodePilot stores all conversations, settings, and media in a local SQLite database using WAL mode.
+
+| Mode | Location |
+|---|---|
+| Production (installed app) | `~/.codepilot/codepilot.db` |
+| Development (`npm run dev` / `npm run electron:dev`) | `./data/` inside the repository root |
+
+<Tip>
+  To back up your data, copy the `~/.codepilot/` directory. To start fresh, delete `codepilot.db` — CodePilot will create a new empty database on next launch.
+</Tip>

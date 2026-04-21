@@ -1,0 +1,279 @@
+---
+title: "CodePilot SQLite Database Schema — Tables Reference"
+description: "Complete reference for CodePilot's local SQLite schema: all tables, columns, relationships, WAL configuration, and the additive migration pattern."
+---
+
+All CodePilot data is stored in a single SQLite database managed by `better-sqlite3`. The database is fully local — nothing is sent to a server. The schema is defined and migrated in `src/lib/db.ts`, which is the only file in the codebase that opens a database connection.
+
+## Database location
+
+| Environment | Path |
+|---|---|
+| Production (Electron) | `~/.codepilot/codepilot.db` |
+| Development fallback | `./data/codepilot.db` |
+
+You can override the data directory by setting the `CLAUDE_GUI_DATA_DIR` environment variable before starting the app.
+
+## Connection settings
+
+On every startup, `db.ts` applies these pragmas before running migrations:
+
+```sql
+PRAGMA journal_mode = WAL;
+PRAGMA busy_timeout = 5000;
+PRAGMA foreign_keys = ON;
+```
+
+WAL mode allows concurrent reads while a write is in progress, which is important because Next.js can spawn multiple worker processes during development. The 5-second busy timeout prevents immediate failures when a write lock is briefly held.
+
+## Schema tables
+
+### Core chat tables
+
+#### `chat_sessions`
+
+Stores conversation metadata. Each session maps to one chat thread in the UI.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | TEXT PK | Unique session identifier (hex) |
+| `title` | TEXT | Display name, defaults to `'New Chat'` |
+| `model` | TEXT | Model ID used in this session |
+| `provider_id` | TEXT | Active provider reference |
+| `provider_name` | TEXT | Provider display name (denormalized) |
+| `working_directory` | TEXT | Project directory path |
+| `sdk_cwd` | TEXT | Working directory sent to the Claude SDK |
+| `project_name` | TEXT | Basename of `working_directory` (backfilled) |
+| `sdk_session_id` | TEXT | Claude SDK session ID for resumption |
+| `mode` | TEXT | Interaction mode: `code`, `plan`, or `ask` |
+| `status` | TEXT | `active` or `archived` |
+| `permission_profile` | TEXT | `default` or `full_access` |
+| `runtime_status` | TEXT | `idle`, `running`, or `waiting_permission` |
+| `runtime_error` | TEXT | Last runtime error message |
+| `context_summary` | TEXT | Compressed conversation summary |
+| `context_summary_boundary_rowid` | INTEGER | SQLite rowid of the last compressed message |
+| `created_at` | TEXT | ISO-8601 timestamp |
+| `updated_at` | TEXT | ISO-8601 timestamp |
+
+#### `messages`
+
+Stores individual messages. The `content` column holds a JSON array of content blocks (text, images, tool results, etc.).
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | TEXT PK | Unique message identifier (hex) |
+| `session_id` | TEXT FK | References `chat_sessions(id)` with `ON DELETE CASCADE` |
+| `role` | TEXT | `user` or `assistant` |
+| `content` | TEXT | JSON array of content blocks |
+| `token_usage` | TEXT | JSON token counts (input, output, cache) |
+| `is_heartbeat_ack` | INTEGER | `1` if this is a heartbeat acknowledgement message |
+| `created_at` | TEXT | ISO-8601 timestamp |
+
+### Application state tables
+
+#### `settings`
+
+Key-value store for all application settings.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment |
+| `key` | TEXT UNIQUE | Setting key |
+| `value` | TEXT | Setting value (always stored as text) |
+
+#### `tasks`
+
+SDK `TodoWrite` task items, linked to a chat session.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | TEXT PK | Unique task identifier |
+| `session_id` | TEXT FK | References `chat_sessions(id)` |
+| `title` | TEXT | Task title |
+| `description` | TEXT | Optional longer description |
+| `status` | TEXT | `pending`, `in_progress`, `completed`, or `failed` |
+| `source` | TEXT | `user` or `sdk` |
+| `sort_order` | INTEGER | Display order |
+| `created_at` / `updated_at` | TEXT | ISO-8601 timestamps |
+
+#### `api_providers`
+
+Configured AI provider credentials and settings.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | TEXT PK | Unique provider identifier |
+| `name` | TEXT | Display name |
+| `provider_type` | TEXT | e.g. `anthropic`, `openai`, `custom` |
+| `protocol` | TEXT | API protocol: `anthropic`, `openai`, etc. |
+| `base_url` | TEXT | Custom endpoint URL |
+| `api_key` | TEXT | API key (stored locally, never sent to CodePilot servers) |
+| `is_active` | INTEGER | Legacy field; replaced by `default_provider_id` setting |
+| `sort_order` | INTEGER | Display order |
+| `extra_env` | TEXT | JSON extra environment variables |
+| `headers_json` | TEXT | JSON additional request headers |
+| `role_models_json` | TEXT | JSON mapping of role → default model |
+| `options_json` | TEXT | JSON extra provider options |
+
+#### `provider_models`
+
+Per-provider model list with capability metadata.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | TEXT PK | Unique model entry identifier |
+| `provider_id` | TEXT FK | References `api_providers(id)` |
+| `model_id` | TEXT | Model identifier used in API calls |
+| `display_name` | TEXT | Human-readable name |
+| `capabilities_json` | TEXT | JSON capability flags |
+| `variants_json` | TEXT | JSON model variants |
+| `enabled` | INTEGER | Whether the model is shown in the UI |
+
+### Media tables
+
+#### `media_generations`
+
+Records of generated images.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | TEXT PK | Unique generation identifier |
+| `type` | TEXT | Always `image` currently |
+| `status` | TEXT | `pending`, `processing`, `completed`, or `failed` |
+| `provider` | TEXT | Generation provider (e.g. `gemini`) |
+| `model` | TEXT | Model ID used |
+| `prompt` | TEXT | Generation prompt |
+| `aspect_ratio` | TEXT | e.g. `1:1`, `16:9` |
+| `local_path` | TEXT | Absolute path to saved image file |
+| `thumbnail_path` | TEXT | Absolute path to thumbnail |
+| `favorited` | INTEGER | `1` if favorited |
+| `tags` | TEXT | JSON array of tag strings |
+
+#### `media_tags`
+
+User-defined tags for organizing gallery images.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment |
+| `name` | TEXT UNIQUE | Tag name |
+| `color` | TEXT | Display color |
+
+#### `media_jobs`
+
+Batch image generation jobs.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | TEXT PK | Job identifier |
+| `status` | TEXT | `draft`, `planning`, `planned`, `running`, `paused`, `completed`, `cancelled`, or `failed` |
+| `doc_paths` | TEXT | JSON array of source document paths |
+| `style_prompt` | TEXT | Global style prompt for the batch |
+| `batch_config` | TEXT | JSON batch configuration |
+| `total_items` / `completed_items` / `failed_items` | INTEGER | Progress counters |
+
+#### `media_job_items`
+
+Individual items within a batch job.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | TEXT PK | Item identifier |
+| `job_id` | TEXT FK | References `media_jobs(id)` |
+| `idx` | INTEGER | Position within the job |
+| `prompt` | TEXT | Per-item generation prompt |
+| `status` | TEXT | `pending`, `processing`, `completed`, `failed`, or `cancelled` |
+| `retry_count` | INTEGER | Number of retry attempts |
+| `result_media_generation_id` | TEXT FK | References `media_generations(id)` on success |
+
+#### `media_context_events`
+
+Context synchronization events linking batch jobs to chat sessions.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | TEXT PK | Event identifier |
+| `session_id` | TEXT FK | References `chat_sessions(id)` |
+| `job_id` | TEXT FK | References `media_jobs(id)` |
+| `payload` | TEXT | JSON event payload |
+| `sync_mode` | TEXT | `manual` or `auto_batch` |
+
+### Bridge tables
+
+#### `channel_bindings`
+
+Maps IM channel addresses to CodePilot sessions.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | TEXT PK | Binding identifier |
+| `channel_type` | TEXT | e.g. `telegram`, `feishu`, `discord` |
+| `chat_id` | TEXT | Platform chat ID |
+| `codepilot_session_id` | TEXT FK | References `chat_sessions(id)` |
+| `sdk_session_id` | TEXT | Claude SDK session for resumption |
+| `working_directory` | TEXT | Working directory for this binding |
+| `model` | TEXT | Model override for this binding |
+| `mode` | TEXT | `code`, `plan`, or `ask` |
+| `provider_id` | TEXT | Provider override for this binding |
+| `active` | INTEGER | `1` if active |
+
+Unique constraint: `(channel_type, chat_id)`.
+
+#### `channel_offsets`
+
+Per-adapter polling offset watermarks. Ensures messages are not re-delivered after a restart.
+
+| Column | Type | Description |
+|---|---|---|
+| `channel_type` | TEXT PK | Adapter key (e.g. `telegram:bot123456`) |
+| `offset_value` | TEXT | Last acknowledged update offset |
+
+### Runtime and scheduling tables
+
+#### `scheduled_tasks`
+
+Persistent task scheduler entries.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | TEXT PK | Task identifier |
+| `name` | TEXT | Display name |
+| `prompt` | TEXT | Prompt to send when the task fires |
+| `schedule_type` | TEXT | `cron`, `interval`, or `once` |
+| `schedule_value` | TEXT | Cron expression or interval in milliseconds |
+| `next_run` | TEXT | Next scheduled execution time |
+| `status` | TEXT | `active`, `paused`, `completed`, or `disabled` |
+| `priority` | TEXT | `low`, `normal`, or `urgent` |
+| `session_id` | TEXT | Target session (optional) |
+
+#### `permission_requests`
+
+Pending tool permission approvals.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | TEXT PK | Request identifier |
+| `session_id` | TEXT FK | References `chat_sessions(id)` |
+| `tool_name` | TEXT | Name of the tool requesting permission |
+| `tool_input` | TEXT | JSON tool input |
+| `status` | TEXT | `pending`, `allow`, `deny`, `timeout`, or `aborted` |
+| `expires_at` | TEXT | Expiry timestamp |
+
+## Migration pattern
+
+Schema changes are applied through the `migrateDb()` function in `src/lib/db.ts`. Migrations are **additive only** — new columns and tables are added, existing ones are never dropped or altered. The pattern for adding a column is:
+
+```typescript
+// Safe column add — ignores "duplicate column name" if already applied
+function safeAddColumn(db, sql) { … }
+
+if (!colNames.includes('my_new_column')) {
+  safeAddColumn(db, "ALTER TABLE my_table ADD COLUMN my_new_column TEXT NOT NULL DEFAULT ''");
+}
+```
+
+A file-based lock (`codepilot.db.migration-lock`) prevents concurrent migration runs when multiple Next.js worker processes start simultaneously in development.
+
+<Note>
+When you add a new table or column, add both the `CREATE TABLE IF NOT EXISTS` statement in `initDb()` and an `ALTER TABLE` guard in `migrateDb()` so that existing databases are upgraded on next launch.
+</Note>

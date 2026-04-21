@@ -1,0 +1,81 @@
+---
+title: "Slash Commands Reference for CodePilot Conversations"
+description: "Complete reference for all built-in slash commands in CodePilot, including usage examples and how skills create custom slash commands."
+---
+
+Slash commands give you quick access to built-in actions without leaving the message input. Type `/` in any conversation to open the command picker and browse available commands. You can also type the full command name and press **Enter** to run it immediately.
+
+## Built-in commands
+
+The following commands ship with every CodePilot installation.
+
+| Command | Description | Example |
+|---|---|---|
+| `/help` | Show all available commands and tips in the chat | `/help` |
+| `/clear` | Remove all messages from the current conversation view | `/clear` |
+| `/cost` | Show token usage statistics for the current session | `/cost` |
+| `/compact` | Compress and summarize the conversation context to free up token budget | `/compact` |
+| `/doctor` | Run provider and system health diagnostics | `/doctor` |
+| `/init` | Initialize a `CLAUDE.md` file in the current project directory | `/init` |
+| `/review` | Trigger a code review of the current working directory | `/review` |
+| `/terminal-setup` | Open the terminal configuration wizard | `/terminal-setup` |
+| `/memory` | Open the project memory file for editing | `/memory` |
+
+<Note>
+The `/compact` command summarizes older parts of the conversation and replaces them with a concise context block. Use it when you see a "context window approaching limit" warning, or before starting a new major task in a long session.
+</Note>
+
+## How to invoke a command
+
+<Steps>
+  <Step title="Open the command picker">
+    Click the message input and type `/`. A popover lists all available commands with short descriptions.
+  </Step>
+  <Step title="Select a command">
+    Use the **↑** / **↓** arrow keys to navigate the list, then press **Enter** to select. Alternatively, continue typing to filter by name.
+  </Step>
+  <Step title="Provide arguments (if required)">
+    Some skill-based commands accept arguments after the command name. The command badge above the input shows the active command — type your argument text and press **Enter** to send.
+  </Step>
+</Steps>
+
+<Tip>
+Type `@` in the message input to mention a file or directory path. The file content is automatically attached as context for the next message.
+</Tip>
+
+## Custom commands from skills
+
+Skills that have `user-invocable: true` in their frontmatter automatically appear in the `/` command picker alongside built-in commands. Installing a skill from the marketplace or creating your own makes it available as a slash command.
+
+### Skill frontmatter format
+
+```yaml
+---
+name: my-command
+description: What this skill does
+user-invocable: true
+allowed-tools: [Read, Write]
+arguments:
+  - name: target
+    description: The file or topic to process
+    required: false
+---
+
+Your skill prompt goes here...
+```
+
+### Skill scope
+
+Commands from skills appear in the picker based on their scope:
+
+| Scope | Where it appears |
+|---|---|
+| `global` | All conversations, all projects |
+| `project` | Only when the working directory matches the skill's project |
+| `installed` | Global scope, installed from the Skills.sh marketplace |
+
+To manage skills, go to the **Skills** page in the sidebar. You can also install community skills directly from the marketplace tab.
+
+<Note>
+Skills installed from the marketplace are stored alongside your global skills. Uninstalling a skill removes it from the command picker immediately.
+</Note>

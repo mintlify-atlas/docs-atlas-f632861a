@@ -1,0 +1,75 @@
+---
+title: "CodePilot — Multi-model AI Agent for Your Desktop"
+description: "CodePilot connects 17+ AI providers in one Electron desktop app, keeps all data local in SQLite, and extends with MCP servers, skills, and remote Bridge."
+---
+
+CodePilot is a multi-model AI agent desktop client built with Electron and Next.js. It gives you a single interface across 17+ AI providers — from Anthropic and OpenRouter to AWS Bedrock, Google Vertex AI, Ollama, and custom endpoints. Every conversation, setting, and memory stays on your machine in a local SQLite database; nothing is sent to a third-party service beyond your chosen AI provider.
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="17+ AI providers" icon="plug">
+    Connect Anthropic, OpenRouter, AWS Bedrock, Google Vertex AI, Ollama, LiteLLM, Zhipu GLM, Kimi, Moonshot, MiniMax, Volcengine, MiMo, Aliyun Bailian, and any Anthropic- or OpenAI-compatible endpoint.
+  </Card>
+  <Card title="Local-first storage" icon="database">
+    All conversations, settings, and media are stored in a local SQLite database (`~/.codepilot/codepilot.db`) using WAL mode. Your data never leaves your machine.
+  </Card>
+  <Card title="MCP server support" icon="server">
+    Add Model Context Protocol servers over stdio, SSE, or HTTP. Monitor runtime status and give your assistant access to tools, databases, and APIs.
+  </Card>
+  <Card title="Skills extensibility" icon="wand-magic-sparkles">
+    Define reusable custom skills at the project or global level, or install from the [skills.sh](https://skills.sh) marketplace.
+  </Card>
+  <Card title="Assistant Workspace" icon="brain">
+    Persona files (`soul.md`, `user.md`, `claude.md`, `memory.md`), persistent memory, onboarding flows, and daily check-ins let your assistant learn your preferences over time.
+  </Card>
+  <Card title="Remote Bridge" icon="bridge">
+    Connect to Telegram, Feishu, Discord, QQ, and WeChat. Send messages from your phone and receive responses on your desktop.
+  </Card>
+  <Card title="Generative UI" icon="palette">
+    The AI can create interactive dashboards, charts, and visual widgets rendered live inside the app.
+  </Card>
+  <Card title="Session management" icon="clock-rotate-left">
+    Pause, resume, and rewind sessions to any checkpoint. Run two sessions side-by-side in split-screen view.
+  </Card>
+</CardGroup>
+
+## Supported platforms
+
+CodePilot runs on all major desktop platforms:
+
+| Platform | Architectures | Formats |
+|---|---|---|
+| macOS | Apple Silicon (arm64), Intel (x64) | DMG |
+| Windows | x64, arm64 | NSIS installer (.exe) |
+| Linux | x64, arm64 | AppImage, .deb, .rpm |
+
+## AI provider coverage
+
+CodePilot includes presets for 17+ providers out of the box. You can also add any custom endpoint that is compatible with the Anthropic or OpenAI API format.
+
+| Category | Providers |
+|---|---|
+| Direct API | Anthropic, OpenRouter |
+| Cloud platforms | AWS Bedrock, Google Vertex AI |
+| Chinese AI providers | Zhipu GLM (CN/Global), Kimi, Moonshot, MiniMax (CN/Global), Volcengine Ark (Doubao), Xiaomi MiMo, Aliyun Bailian (Qwen) |
+| Local / self-hosted | Ollama, LiteLLM |
+| Media | Google Gemini (image generation) |
+| Custom | Any Anthropic-compatible or OpenAI-compatible endpoint |
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Download a release or build from source and start your first conversation
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Platform-specific setup, Gatekeeper and SmartScreen workarounds, build commands
+  </Card>
+  <Card title="AI providers" icon="plug" href="/features/providers">
+    Configure API keys, custom endpoints, and provider diagnostics
+  </Card>
+  <Card title="MCP servers" icon="server" href="/extensions/mcp-servers">
+    Add and manage Model Context Protocol servers
+  </Card>
+</CardGroup>

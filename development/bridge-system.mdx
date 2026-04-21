@@ -1,0 +1,200 @@
+---
+title: "Bridge System Internals: Adapters and Architecture"
+description: "Technical deep-dive into CodePilot's IM Bridge subsystem: adapters, channel routing, conversation engine, rate limiting, and how to add a new adapter."
+---
+
+The Bridge subsystem (`src/lib/bridge/`) lets users control CodePilot sessions remotely through instant-messaging platforms. It reuses the same `streamClaude()` pipeline as the desktop UI, but consumes the SSE stream server-side and delivers formatted responses back to the IM platform. This page documents the internals for developers who need to understand or extend the Bridge.
+
+## Architecture overview
+
+The Bridge is composed of five layers that each have a clear responsibility:
+
+<CardGroup cols={2}>
+  <Card title="Channel adapters" icon="plug">
+    Platform-specific connectors. Each adapter handles connection lifecycle, inbound message parsing, and outbound delivery for one IM platform.
+  </Card>
+  <Card title="Channel router" icon="git-branch">
+    Maps `(channel_type, chat_id)` pairs to CodePilot sessions. Creates new sessions or resumes existing ones as needed.
+  </Card>
+  <Card title="Conversation engine" icon="message-circle">
+    Calls `streamClaude()` and consumes the SSE stream server-side. Saves messages to the database and fires `onPartialText` callbacks for streaming previews.
+  </Card>
+  <Card title="Permission broker" icon="shield">
+    Intercepts `permission_request` events from the Claude SDK and forwards them to the IM platform as inline buttons. Resolves approvals when the user responds.
+  </Card>
+  <Card title="Delivery layer" icon="send">
+    Formats, chunks, rate-limits, and retries outbound messages. Handles platform-specific rendering (Telegram HTML, Feishu cards, plain text).
+  </Card>
+</CardGroup>
+
+The `bridge-manager.ts` module orchestrates these layers: it starts and stops adapter event loops, routes messages through the conversation engine, and dispatches responses via the delivery layer.
+
+## Supported adapters
+
+| Platform | Transport | Outbound format | Streaming preview |
+|---|---|---|---|
+| Telegram | Long polling | Telegram HTML (via IR pipeline) | Yes (Bot API draft messages) |
+| Feishu / Lark | WebSocket (SDK) | CardKit v2 streaming cards | Yes (card update streaming) |
+| Discord | Discord.js Gateway WebSocket | Native Markdown | Yes (message edit streaming) |
+| WeChat | Long polling (ilink protocol) | Plain text | No |
+| QQ | Configured via settings | Plain text | No |
+
+## Data flow
+
+```
+IM message arrives
+  → Adapter receives (long poll / WebSocket)
+  → Deduplication check (message ID or dedup key)
+  → Authorization check (allowlist / policy)
+  → InboundMessage enqueued
+
+BridgeManager.runAdapterLoop()
+  → handleMessage(inboundMsg)
+    → ChannelRouter.resolve() → ChannelBinding + session
+    → ConversationEngine.processMessage()
+        → streamClaude({ prompt, files, sdkSessionId })
+        → consumeStream():
+            text       → onPartialText callback → streaming preview
+            tool_use   → onToolEvent callback → tool progress UI
+            permission → PermissionBroker.forward() → IM inline buttons
+        → addMessage() saves to SQLite
+    → DeliveryLayer.deliver(response, channelType)
+        → format (HTML / card / plain text)
+        → rateLimiter.acquire(chatId)
+        → send via adapter
+        → retry with exponential backoff on 5xx / network errors
+
+  → finally: adapter.acknowledgeUpdate(updateId)
+             → advances committedOffset → persists to channel_offsets
+```
+
+## The `ChannelPlugin<T>` interface
+
+In addition to the `BaseChannelAdapter` abstract class, there is a higher-level `ChannelPlugin<T>` contract defined in `src/lib/channels/types.ts`. Feishu uses this architecture. The interface declares:
+
+```typescript
+interface ChannelPlugin<TConfig> {
+  // Lifecycle
+  start(config: TConfig): Promise<void>;
+  stop(): Promise<void>;
+  probe(): Promise<ProbeResult>;
+
+  // Capabilities
+  getCapabilities(): ChannelCapabilities;
+
+  // Inbound
+  onMessage(handler: (msg: InboundMessage) => void): void;
+
+  // Outbound
+  sendMessage(chatId: string, content: string): Promise<void>;
+  getCardStreamController?(chatId: string): CardStreamController | null;
+  onMessageStart?(chatId: string, messageId: string): void;
+  onMessageEnd?(chatId: string, messageId: string): void;
+
+  // Policy
+  isUserAuthorized(userId: string, chatId: string): boolean;
+}
+```
+
+`ChannelCapabilities` declares what the platform supports:
+
+```typescript
+interface ChannelCapabilities {
+  streaming: boolean;       // Can update/edit sent messages
+  threadReply: boolean;     // Can reply in threads
+  inlineButtons: boolean;   // Can render interactive buttons
+  reactions: boolean;       // Can add emoji reactions
+  search: boolean;          // Supports message search
+}
+```
+
+A `ChannelPluginAdapter` in `src/lib/channels/channel-plugin-adapter.ts` bridges a `ChannelPlugin<T>` to the `BaseChannelAdapter` interface that `bridge-manager.ts` expects, so the bridge manager does not need to know which architecture a specific adapter uses.
+
+## Adding a new adapter
+
+<Steps>
+  <Step title="Choose an architecture">
+    If the platform has a simple HTTP polling or WebSocket protocol, extend `BaseChannelAdapter` from `src/lib/bridge/channel-adapter.ts`.
+
+    If the platform needs modular sub-components (config, gateway, inbound, outbound, policy), implement `ChannelPlugin<TConfig>` from `src/lib/channels/types.ts` and bridge it via `ChannelPluginAdapter`.
+  </Step>
+  <Step title="Implement the adapter">
+    For `BaseChannelAdapter`, override:
+    - `start()` / `stop()` — connection lifecycle
+    - `runPollLoop()` or equivalent — inbound message loop
+    - `deliver(chatId, text)` — outbound plain text
+    - `acknowledgeUpdate(updateId)` — advance the committed offset
+    - `channelType` — unique string identifier (e.g. `'myplatform'`)
+
+    Call `this.emit('message', inboundMsg)` to pass inbound messages to the bridge manager.
+  </Step>
+  <Step title="Register the adapter">
+    At the end of your adapter file, call the self-registration function:
+
+    ```typescript
+    import { registerAdapterFactory } from '../channel-adapter';
+
+    registerAdapterFactory('myplatform', (config) => new MyPlatformAdapter(config));
+    ```
+  </Step>
+  <Step title="Add a side-effect import">
+    Add a single import line to `src/lib/bridge/adapters/index.ts`:
+
+    ```typescript
+    import './myplatform-adapter';
+    ```
+
+    The bridge manager imports `'./adapters'` which triggers all self-registrations. No other file needs to change.
+  </Step>
+  <Step title="Add database and settings entries">
+    - Add a settings key for the adapter toggle (e.g. `bridge_myplatform_enabled`) to the settings schema documentation.
+    - The `channel_bindings` and `channel_offsets` tables already handle any adapter via the `channel_type` text column — no schema changes needed.
+  </Step>
+</Steps>
+
+## Rate limiting
+
+The `security/rate-limiter.ts` module enforces a **sliding window limit of 20 messages per minute per `chatId`**. The delivery layer calls `rateLimiter.acquire(chatId)` before every outbound message and blocks (with an async wait) until capacity is available.
+
+Additional delivery constraints:
+- 300 ms inter-chunk delay between message fragments
+- `429` responses: the adapter respects the `retry_after` value from the platform
+- `5xx` responses: exponential backoff
+- `4xx` responses (except `429`): no retry
+
+## Offset safety and at-least-once delivery
+
+Each adapter separates the `fetchOffset` (used for polling API calls) from the `committedOffset` (persisted to `channel_offsets`). This prevents silent message loss if the process crashes mid-handling:
+
+1. **Inbound:** `fetchOffset` advances when a message is received and enqueued. `committedOffset` stays behind.
+2. **Processing:** The bridge manager handles the message — calls Claude, awaits a response, delivers to IM.
+3. **Acknowledge:** In the `finally` block of `handleMessage()`, the manager calls `adapter.acknowledgeUpdate(updateId)`, which advances `committedOffset` and persists it.
+
+If the process restarts before step 3, the message is re-delivered (at-least-once). If it restarts after step 3, it is skipped (exactly-once for that message).
+
+## Concurrent session handling
+
+`processWithSessionLock()` in `bridge-manager.ts` ensures messages for the same session are processed serially, while messages for different sessions can be processed in parallel. This prevents interleaved Claude SDK calls on the same session context.
+
+## Key source files
+
+| File | Purpose |
+|---|---|
+| `src/lib/bridge/bridge-manager.ts` | Lifecycle orchestration, event loop, streaming preview state machine |
+| `src/lib/bridge/channel-router.ts` | `(channel_type, chat_id)` → session mapping, cwd healing |
+| `src/lib/bridge/conversation-engine.ts` | Server-side `streamClaude()` consumer, message persistence |
+| `src/lib/bridge/permission-broker.ts` | Permission request forwarding and approval resolution |
+| `src/lib/bridge/delivery-layer.ts` | Outbound message chunking, rate limiting, retry, HTML fallback |
+| `src/lib/bridge/channel-adapter.ts` | `BaseChannelAdapter` abstract class + adapter factory registry |
+| `src/lib/bridge/adapters/telegram-adapter.ts` | Telegram long-polling adapter |
+| `src/lib/bridge/adapters/discord-adapter.ts` | Discord.js Gateway adapter |
+| `src/lib/bridge/adapters/weixin-adapter.ts` | WeChat multi-account long-polling adapter |
+| `src/lib/bridge/adapters/feishu-adapter.ts` | Thin proxy → `ChannelPluginAdapter(FeishuChannelPlugin)` |
+| `src/lib/channels/types.ts` | `ChannelPlugin<T>`, `ChannelCapabilities`, `CardStreamController` interfaces |
+| `src/lib/channels/feishu/` | Feishu modular plugin (gateway, inbound, outbound, policy, card controller) |
+| `src/lib/bridge/security/rate-limiter.ts` | Sliding-window rate limiter (20 msg/min per chatId) |
+| `src/lib/bridge/security/validators.ts` | Input sanitization for all inbound IM commands |
+
+<Warning>
+The `runAdapterLoop()` IIFE checks `while (state.running)` at the start of each iteration. The `state.running = true` flag must be set **before** calling `runAdapterLoop()`. If `start()` sets the flag after starting the loop, the loop exits immediately on the first iteration before processing any messages.
+</Warning>

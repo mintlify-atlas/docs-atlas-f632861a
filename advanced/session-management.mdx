@@ -1,0 +1,152 @@
+---
+title: "Session Management: Rewind, Split-screen, and Context"
+description: "Manage CodePilot sessions with rewind checkpoints, split-screen mode, context compaction, token tracking, and Claude Code CLI history import."
+---
+
+A session in CodePilot is more than a conversation thread. Each session carries a working directory, a selected provider and model, an interaction mode (Code, Plan, or Ask), and a full message history stored in SQLite. Advanced session management gives you tools to recover from mistakes, work on multiple tasks in parallel, control context window usage, and track costs over time.
+
+## What a session contains
+
+| Field | Description |
+|---|---|
+| Working directory | The file system path the AI agent operates in |
+| Provider and model | Which AI provider and model handle this session |
+| Mode | `code`, `plan`, or `ask` — controls what the AI agent is allowed to do |
+| Permission profile | `default` (approval required for risky actions) or `full_access` |
+| Context summary | A compressed summary of earlier conversation turns used to manage long contexts |
+| Status | `active` or `archived` |
+
+## Session states
+
+<CardGroup cols={2}>
+  <Card title="Active" icon="circle-dot">
+    The session is in use. You can send messages, resume the AI agent, and make changes. Active sessions appear in the main session list.
+  </Card>
+  <Card title="Paused" icon="circle-pause">
+    The AI agent has stopped but the session is still accessible. You can review the conversation and resume at any time.
+  </Card>
+  <Card title="Archived" icon="box-archive">
+    The session is hidden from the main list but preserved in the database. Archived sessions are searchable and can be unarchived.
+  </Card>
+</CardGroup>
+
+## Rewind to checkpoint
+
+Every time you send a message, CodePilot records a rewind checkpoint. If the AI makes changes you want to undo — edits to the wrong files, a failed refactor, or a response that went in the wrong direction — you can roll the session back to any earlier point.
+
+<Steps>
+  <Step title="Open the session timeline">
+    In the conversation view, click the **Rewind** icon (or press the keyboard shortcut shown in the toolbar). A timeline panel appears on the right showing all checkpoints.
+  </Step>
+  <Step title="Select a checkpoint">
+    Each checkpoint is labeled with the message that created it and a timestamp. Hover over a checkpoint to preview what the conversation looked like at that point.
+  </Step>
+  <Step title="Confirm the rewind">
+    Click **Rewind to here**. CodePilot restores the conversation history to that checkpoint and, if file checkpointing was enabled, reverts any file system changes the agent made after that point.
+  </Step>
+</Steps>
+
+<Warning>
+File rewind requires that the session was started with file checkpointing enabled. If this option was off, the conversation history rewinds but files on disk are not restored. Enable file checkpointing in session settings before starting work on important tasks.
+</Warning>
+
+## Split-screen mode
+
+Split-screen lets you run two sessions side by side in the same window. Use this to compare two AI approaches, work on a frontend and backend task simultaneously, or keep a reference conversation open while working in another.
+
+<Steps>
+  <Step title="Open split-screen">
+    Click the **Split** icon in the top-right corner of any session, or use the keyboard shortcut. The current session moves to the left panel.
+  </Step>
+  <Step title="Select the second session">
+    A session picker appears in the right panel. Choose an existing session or create a new one. Both sessions are fully independent and stream simultaneously.
+  </Step>
+  <Step title="Close split-screen">
+    Click the **X** on either panel to collapse it, or click the **Split** icon again to return to single-session view.
+  </Step>
+</Steps>
+
+## Importing Claude Code CLI history
+
+If you used the Claude Code CLI before switching to CodePilot, you can import your previous conversation history.
+
+<Steps>
+  <Step title="Locate your CLI session files">
+    Claude Code CLI stores sessions as `.jsonl` files, typically in `~/.claude/` or the directory you ran the CLI from.
+  </Step>
+  <Step title="Open the import dialog">
+    Go to **Settings > Sessions** and click **Import CLI History**, or drag a `.jsonl` file directly onto the session list.
+  </Step>
+  <Step title="Select the file">
+    Browse to your `.jsonl` file and confirm. CodePilot creates a new session populated with the imported message history.
+  </Step>
+</Steps>
+
+The imported session is read-only by default. You can continue the conversation from the last imported message by resuming the session normally.
+
+## Context management
+
+Long conversations eventually approach the model's context window limit. CodePilot provides several tools to manage this.
+
+### Context summary
+
+The `context_summary` field on a session stores a compressed summary of earlier conversation turns. When the context is getting long, CodePilot uses this summary as a skeleton — earlier turns are replaced by the summary, keeping the most recent messages at full fidelity.
+
+### The `/compact` command
+
+Type `/compact` in the conversation input to manually trigger context compaction. CodePilot summarizes the current conversation and stores the summary in `context_summary`, then continues the session with a reduced context.
+
+<Tip>
+Use `/compact` proactively on long-running sessions before you hit the context limit. Reactive compaction (automatic on `CONTEXT_TOO_LONG` errors) works, but proactive compaction gives you more control over what gets summarized.
+</Tip>
+
+### Handling very long contexts
+
+For sessions that require a very large context window, enable the **1M context** option in session settings (requires a provider that supports the `context-1m-2025-08-07` beta header). This expands the context window significantly but increases per-turn cost.
+
+## Token usage and cost tracking
+
+CodePilot tracks token usage for every message turn.
+
+<CardGroup cols={2}>
+  <Card title="Per-session totals" icon="calculator">
+    Each session shows a running total of input tokens, output tokens, cache reads, and estimated cost in USD. Click the token counter in the session header to see the breakdown.
+  </Card>
+  <Card title="Daily usage charts" icon="chart-line">
+    The dashboard home page shows daily token usage charts across all sessions. Use this to spot expensive sessions or track your API spend over time.
+  </Card>
+</CardGroup>
+
+Token counts are stored in the `token_usage` field of each message as a JSON object:
+
+```json
+{
+  "input_tokens": 1240,
+  "output_tokens": 312,
+  "cache_read_input_tokens": 800,
+  "cache_creation_input_tokens": 440,
+  "cost_usd": 0.0034
+}
+```
+
+`cost_usd` is an estimate calculated from the provider's known pricing. For providers without published pricing, this field is omitted.
+
+## Archiving sessions
+
+Archiving moves a completed session out of the active list without deleting it. All messages, files, and token records are preserved.
+
+<Steps>
+  <Step title="Open session options">
+    Right-click a session in the sidebar, or click the **...** menu in the session header.
+  </Step>
+  <Step title="Select Archive">
+    Click **Archive session**. The session disappears from the active list immediately.
+  </Step>
+  <Step title="Access archived sessions">
+    To view or restore an archived session, click **Archived** at the bottom of the session list. From there you can open, unarchive, or permanently delete sessions.
+  </Step>
+</Steps>
+
+<Note>
+All session data is stored locally in `~/.codepilot/codepilot.db`. Archiving does not delete anything — it only changes the session's `status` field to `archived`. You can unarchive a session at any time.
+</Note>

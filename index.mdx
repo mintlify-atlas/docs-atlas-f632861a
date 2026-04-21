@@ -1,97 +1,67 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "CodePilot: AI Agent Desktop Client for Any Provider"
+description: "Connect 17+ AI providers, extend with MCP servers and skills, control from your phone, and keep all your data local with CodePilot."
 ---
 
-## Setting up
+CodePilot is a desktop AI agent client built with Electron and Next.js that gives you a single interface across 17+ AI providers — from Anthropic and OpenRouter to AWS Bedrock, Google Vertex, Ollama, and custom endpoints. Every conversation, setting, and memory stays on your machine in a local SQLite database.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Download and run your first conversation in minutes
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Installation" icon="download" href="/installation">
+    Platform-specific setup for macOS, Windows, and Linux
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="AI Providers" icon="plug" href="/features/providers">
+    Connect Anthropic, OpenRouter, Ollama, Bedrock, and more
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="MCP Servers" icon="server" href="/extensions/mcp-servers">
+    Extend CodePilot with Model Context Protocol servers
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What you can do with CodePilot
 
-Everything you need to create world-class documentation.
+CodePilot started as a GUI client for Claude Code and has grown into a full AI agent platform for daily use.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={2}>
+  <Card title="Conversations" icon="messages" href="/features/conversations">
+    Code, Plan, and Ask modes with session rewind, split-screen, and token tracking
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Assistant Workspace" icon="brain" href="/features/assistant-workspace">
+    Persona files and persistent memory that your assistant learns over time
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Skills" icon="wand-magic-sparkles" href="/extensions/skills">
+    Custom slash commands and reusable agent behaviors from the skills.sh marketplace
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="Bridge" icon="bridge" href="/extensions/bridge">
+    Remote-control CodePilot from Telegram, Feishu, Discord, QQ, and WeChat
   </Card>
-</Columns>
+  <Card title="Generative UI" icon="palette" href="/advanced/generative-ui">
+    AI-created interactive dashboards and visual widgets rendered live in-app
+  </Card>
+  <Card title="Media Studio" icon="image" href="/advanced/media-studio">
+    AI image generation with batch tasks, gallery, and tagging
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Get up and running
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Steps>
+  <Step title="Download CodePilot">
+    Visit the [Releases page](https://github.com/op7418/CodePilot/releases) and download the installer for your platform — macOS (Apple Silicon or Intel), Windows, or Linux.
+  </Step>
+  <Step title="Configure a provider">
+    Open **Settings → Providers** and add your API key for any supported provider. CodePilot includes presets for all major providers — just pick one and enter your key.
+  </Step>
+  <Step title="Start a conversation">
+    Click **New Chat**, pick a working directory, choose a mode (Code / Plan / Ask), select a model, and start talking to your AI assistant.
+  </Step>
+  <Step title="Extend with MCP and skills">
+    Add MCP servers via the **MCP** page in the sidebar to give your assistant access to tools, databases, and APIs. Install reusable skills from the skills.sh marketplace on the **Skills** page.
+  </Step>
+</Steps>
+
+<Note>
+  Installing the [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/overview) (`npm install -g @anthropic-ai/claude-code`) unlocks file editing, terminal commands, and git operations. It is recommended but not required — you can use any supported provider for chat without it.
+</Note>

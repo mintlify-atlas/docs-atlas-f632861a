@@ -1,0 +1,165 @@
+---
+title: "MCP Servers: Connect External Tools and Data Sources"
+description: "Connect external tools, APIs, and data sources to CodePilot using the Model Context Protocol. Supports stdio, SSE, and HTTP transports."
+---
+
+MCP (Model Context Protocol) is an open standard that lets AI models call external tools and access live data sources. When you add an MCP server to CodePilot, the AI can use its tools just like built-in capabilities — searching databases, running scripts, calling APIs, or reading files from any system that exposes an MCP interface.
+
+## How MCP works in CodePilot
+
+CodePilot loads MCP server configurations from three sources, merged in order:
+
+1. `~/.claude.json` — user-level servers shared across all projects
+2. `~/.claude/settings.json` — user-level settings and per-server enable/disable overrides
+3. `.mcp.json` at the project root — project-local servers checked into your repository
+
+Project-level servers take precedence. You can enable or disable any server from the MCP page without editing the file directly — CodePilot writes the override to `~/.claude/settings.json`.
+
+## Supported transports
+
+<CardGroup cols={3}>
+  <Card title="stdio" icon="terminal">
+    Spawns a local process. Best for command-line tools, scripts, and anything that runs on your machine.
+  </Card>
+  <Card title="SSE" icon="rss">
+    Connects to an HTTP server using Server-Sent Events. Use for remote or long-running services.
+  </Card>
+  <Card title="HTTP" icon="globe">
+    Connects to an HTTP endpoint. Use for REST-based MCP services and cloud APIs.
+  </Card>
+</CardGroup>
+
+<Tip>Prefer `stdio` for local tools — it starts on demand, requires no open port, and stops automatically when CodePilot closes.</Tip>
+
+## Adding an MCP server
+
+<Steps>
+  <Step title="Open the MCP page">
+    Click **MCP** in the left sidebar to open the MCP manager.
+  </Step>
+  <Step title="Click Add Server">
+    Click **Add Server** in the top right. A configuration panel opens.
+  </Step>
+  <Step title="Choose a transport">
+    Select **stdio**, **SSE**, or **HTTP** depending on how your server runs.
+  </Step>
+  <Step title="Fill in the configuration">
+    For `stdio`: enter the command and any arguments. For `sse` or `http`: enter the server URL. Add environment variables as needed.
+  </Step>
+  <Step title="Save and verify">
+    Click **Save**. The MCP page shows the server status. A green indicator means the server connected and its tools are available.
+  </Step>
+</Steps>
+
+## Configuration file format
+
+CodePilot uses the standard `.mcp.json` format. Place this file at your project root to share MCP servers with everyone on the project.
+
+<Tabs>
+  <Tab title="stdio (local process)">
+    ```json .mcp.json
+    {
+      "mcpServers": {
+        "my-tool": {
+          "type": "stdio",
+          "command": "npx",
+          "args": ["-y", "my-mcp-package@latest"],
+          "env": {
+            "API_KEY": "your-key-here"
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="SSE (remote service)">
+    ```json .mcp.json
+    {
+      "mcpServers": {
+        "remote-service": {
+          "type": "sse",
+          "url": "https://my-mcp-service.example.com/sse",
+          "headers": {
+            "Authorization": "Bearer your-token"
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="HTTP">
+    ```json .mcp.json
+    {
+      "mcpServers": {
+        "http-api": {
+          "type": "http",
+          "url": "https://my-mcp-service.example.com/mcp"
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Environment variable placeholders
+
+If your server needs a secret stored in CodePilot's settings database, use a `${setting_key}` placeholder in the `env` block. CodePilot resolves the value at runtime without exposing it in the config file.
+
+```json .mcp.json
+{
+  "mcpServers": {
+    "my-tool": {
+      "type": "stdio",
+      "command": "my-mcp-server",
+      "env": {
+        "SECRET_TOKEN": "${my_secret_token}"
+      }
+    }
+  }
+}
+```
+
+## Runtime monitoring
+
+The MCP page shows live status for every configured server:
+
+| Indicator | Meaning |
+|---|---|
+| Green dot | Connected — tools available |
+| Yellow dot | Connecting or starting |
+| Red dot | Error — click to view logs |
+| Grey dot | Disabled |
+
+Click any server row to expand its log output. Use the **Restart** button to reconnect without restarting CodePilot. Toggle the switch next to a server name to enable or disable it; the state persists across sessions.
+
+## Built-in MCP servers
+
+CodePilot ships several in-process MCP servers that are always available without any configuration.
+
+<AccordionGroup>
+  <Accordion title="codepilot-notify — notifications and task scheduling">
+    Provides four tools: send an immediate desktop notification, create a scheduled task, list scheduled tasks, and cancel a scheduled task. Available in all conversations.
+  </Accordion>
+  <Accordion title="codepilot-memory — workspace memory search">
+    Provides search, retrieval, and recent-memory tools over your Assistant Workspace files. Uses temporal decay scoring and supports tag and type filters. Active when an Assistant Workspace is configured.
+  </Accordion>
+  <Accordion title="codepilot-dashboard — generative UI dashboard">
+    Lets the AI pin widgets, update data sources, and manage the live dashboard panel. Activated automatically when a conversation involves dashboard topics.
+  </Accordion>
+  <Accordion title="codepilot-image-gen — AI image generation">
+    Wraps the Gemini image generation pipeline. Generated images appear inline in the chat and are saved to the media library. Activated when the conversation involves image or media generation.
+  </Accordion>
+  <Accordion title="codepilot-media — media library import">
+    Lets the AI import files directly into the media library. Keyword-gated alongside `codepilot-image-gen` for media-related conversations.
+  </Accordion>
+</AccordionGroup>
+
+<Note>Built-in servers cannot be removed, but they only activate in the relevant context — they do not consume tool slots in unrelated conversations.</Note>
+
+## Best practices
+
+- **Use `stdio` for local tools.** Local processes start on demand, have no network exposure, and stop when the session ends.
+- **Pin shared servers in `.mcp.json`.** Committing the file ensures everyone on the project uses the same tool set.
+- **Keep secrets out of the file.** Use `${setting_key}` placeholders for API keys and tokens rather than hardcoding them.
+- **Disable unused servers.** Each enabled server is loaded at session start. Disabling servers you rarely use reduces initialization time.
+- **Check logs before debugging the AI.** If a tool call silently fails, the MCP log on the server's detail panel usually shows the cause.

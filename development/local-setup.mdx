@@ -1,0 +1,123 @@
+---
+title: "Set Up a Local Development Environment for CodePilot"
+description: "Step-by-step guide to clone, install, and run CodePilot locally in browser mode or as a full Electron desktop app with native window controls."
+---
+
+Setting up a local CodePilot development environment takes under five minutes. The repository is a single Node.js workspace — there are no separate backend services to spin up, and no environment file is required for basic development. All AI provider credentials are configured through the application UI at runtime.
+
+## Prerequisites
+
+| Requirement | Minimum version | Notes |
+|---|---|---|
+| Node.js | 18+ | Node 20 LTS recommended |
+| npm | 9+ | Ships with Node 18 |
+| Git | Any recent version | — |
+
+<Note>
+Electron itself is listed as a `devDependency` and is downloaded automatically during `npm install`. You do not need to install Electron separately.
+</Note>
+
+## Cloning and installing
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/op7418/CodePilot.git
+    cd CodePilot
+    ```
+  </Step>
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+
+    This installs all dependencies including Electron, Playwright browsers for testing, and the Husky pre-commit hooks.
+  </Step>
+  <Step title="Choose a run mode">
+    You have two options depending on what you are working on:
+
+    ```bash
+    # Browser mode — Next.js dev server only, open http://localhost:3000
+    npm run dev
+
+    # Full desktop mode — Next.js + Electron shell
+    npm run electron:dev
+    ```
+
+    See the section below for when to use each mode.
+  </Step>
+</Steps>
+
+## Run modes
+
+### Browser mode (`npm run dev`)
+
+Starts only the Next.js development server. You use CodePilot in your browser at `http://localhost:3000`. This mode starts faster and is the right choice when working on:
+
+- React components and UI layout
+- API routes (`src/app/api/`)
+- Business logic in `src/lib/`
+- Any feature that does not depend on native Electron APIs
+
+### Electron mode (`npm run electron:dev`)
+
+Runs `next dev` and `electron .` concurrently (using `wait-on` to wait for the Next.js server before launching Electron). Use this mode when working on:
+
+- Electron main process code in `electron/`
+- Features that use the `contextBridge` API (`window.electronAPI`)
+- Native window behavior (title bar, tray, IPC)
+- End-to-end testing with the real desktop shell
+
+<Tip>
+For most UI and API work, browser mode is faster. Switch to Electron mode when you specifically need to verify native behavior or the Electron IPC bridge.
+</Tip>
+
+## Environment configuration
+
+No `.env` file is needed for basic development. Provider credentials (API keys, base URLs) are stored in the local SQLite database and configured through **Settings > Providers** in the running app.
+
+The database is stored at:
+
+- **Production / Electron:** `~/.codepilot/codepilot.db`
+- **Dev fallback:** `./data/codepilot.db`
+
+You can override the data directory with the `CLAUDE_GUI_DATA_DIR` environment variable if you want to isolate dev data from your production install.
+
+## Running tests
+
+CodePilot has three test tiers with different requirements:
+
+| Command | What it runs | Time | Requires dev server |
+|---|---|---|---|
+| `npm run test` | typecheck + unit tests | ~4 s | No |
+| `npm run test:smoke` | Playwright smoke tests (`@smoke` tag) | ~15 s | Yes |
+| `npm run test:e2e` | Full Playwright E2E suite | ~60 s+ | Yes |
+
+For the smoke and E2E tests, start the dev server first in a separate terminal:
+
+```bash
+# Terminal 1
+npm run dev
+
+# Terminal 2
+npm run test:smoke
+# or
+npm run test:e2e
+```
+
+<Note>
+The pre-commit hook runs `npm run test` automatically (typecheck + unit tests) on every commit. You do not need to run it manually before committing, but it is useful to run it proactively to catch issues early.
+</Note>
+
+## Code style
+
+- **Language:** TypeScript (strict mode). Run `npm run typecheck` to check without emitting.
+- **Linting:** ESLint 9 with the Next.js config (`eslint.config.mjs`). Run `npm run lint`.
+- **Styling:** Tailwind CSS 4. Avoid raw color utilities like `bg-green-500` — use the design token aliases defined in the project's Tailwind config.
+- **Commits:** Follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat/fix/refactor/chore`). The commit body should explain what changed and why.
+
+## Pre-commit hooks
+
+Husky is configured to run `npm run test` (typecheck + unit tests) automatically before each commit. If the tests fail, the commit is blocked. To skip the hook in an emergency, use `git commit --no-verify` — but only when you have a clear reason.
+
+`lint-staged` also runs `eslint --fix` on all staged `.ts` and `.tsx` files.

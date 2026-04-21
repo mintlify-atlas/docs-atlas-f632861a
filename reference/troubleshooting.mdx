@@ -1,0 +1,154 @@
+---
+title: "Troubleshooting Common CodePilot Errors and Issues"
+description: "Fix the most common CodePilot problems: provider setup errors, macOS/Windows security warnings, CLI detection, Bridge connectivity, and session issues."
+---
+
+Most CodePilot issues fall into one of a few categories: provider configuration, platform security warnings, or runtime errors. Work through the relevant section below.
+
+## No models appear after configuring a provider
+
+You added a provider and entered an API key, but the model selector is empty or shows an error.
+
+**Possible causes and fixes:**
+
+1. **Invalid API key** — Double-check that you copied the full key with no trailing spaces. Keys for some providers (e.g. Aliyun Bailian Coding Plan) must start with a specific prefix (`sk-sp-`).
+
+2. **Wrong auth style** — Some providers use an auth token instead of an API key. If you're configuring a provider manually, check whether it uses `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN`.
+
+3. **Provider requires extra setup** — AWS Bedrock and Google Vertex AI do not use a simple API key. They require IAM credentials or GCP service account configuration via environment variables. See the provider's documentation and enter the required values in **Advanced Options → Extra Environment Variables**.
+
+4. **Run diagnostics** — Go to **Settings → Providers**, find your provider, and click **Diagnose**. The Provider Doctor runs connectivity checks and shows exactly what is failing.
+
+5. **Endpoint unreachable** — If you're behind a corporate proxy or firewall, the provider URL may be blocked. Test connectivity to the base URL from a terminal.
+
+<Note>
+For Volcengine Ark, you must specify model names manually in the provider form. The preset leaves the model list empty because available models depend on which Endpoints you have activated in the Ark console.
+</Note>
+
+## macOS: Gatekeeper warning on first launch
+
+CodePilot builds are code-signed with a Developer ID certificate but are not notarized. macOS may show a warning that the app "cannot be opened because it is from an unidentified developer."
+
+**Option 1 — Right-click to open:**
+
+Right-click (or Control-click) `CodePilot.app` in Finder, choose **Open**, then confirm in the dialog.
+
+**Option 2 — System Settings:**
+
+Go to **System Settings → Privacy & Security**, scroll to the Security section, and click **Open Anyway** next to the CodePilot entry.
+
+**Option 3 — Terminal command:**
+
+```bash
+xattr -cr /Applications/CodePilot.app
+```
+
+Run this in Terminal, then launch CodePilot normally.
+
+## Windows: SmartScreen blocks the installer
+
+Windows SmartScreen may display a warning when you run the CodePilot installer because the binary is unsigned.
+
+**Option 1 — Proceed through SmartScreen:**
+
+Click **More info** on the SmartScreen dialog, then click **Run anyway**.
+
+**Option 2 — Allow apps from anywhere:**
+
+Go to **Settings → Apps → Advanced app settings**, then set **App Install Control** to allow apps from anywhere.
+
+## Claude Code CLI not found
+
+If you see "Claude Code is not installed" or the CLI status shows **Not detected**, the Claude Code CLI is not on your `PATH`.
+
+**Install the CLI:**
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+After installation, authenticate with:
+
+```bash
+claude login
+```
+
+Then go to **Settings → Claude Code** in CodePilot and click **Recheck** to verify the install is detected.
+
+<Note>
+Claude Code CLI is optional. CodePilot's native runtime (AI SDK) works without it. The CLI is only needed if you want the Claude Code SDK runtime or want to import session history from the CLI.
+</Note>
+
+### Windows: Git for Windows required
+
+On Windows, Claude Code requires Git for Windows to run shell commands. If you see "Missing Git" in the connection status, install Git:
+
+1. Download Git for Windows from [git-scm.com/downloads/win](https://git-scm.com/downloads/win)
+2. Run the installer with default settings
+3. Return to CodePilot and click **Recheck**
+
+## Bridge not connecting
+
+The Remote Bridge shows "Disconnected" or fails to start after you configure a channel.
+
+**Check these things in order:**
+
+1. **Bridge is enabled** — Go to **Bridge** in the sidebar and confirm the **Enable Remote Bridge** toggle is on.
+2. **At least one channel is enabled** — Enable the Telegram, Feishu, Discord, QQ, or WeChat channel toggle.
+3. **Credentials are correct** — Open the channel settings (e.g. Telegram Settings) and click **Test Connection** to verify the bot token and credentials.
+4. **Bot setup is complete** — Each platform requires you to create a bot and obtain credentials before CodePilot can connect. The setup guide in each channel's settings panel explains the required steps.
+5. **Check adapter status** — The **Adapter Status** section on the Bridge page shows per-channel runtime status and the last error message.
+
+<Warning>
+For WeChat, the bridge uses QR code login. The session expires periodically and requires re-scanning the QR code to reconnect. The account status will show "Session Expired" when this happens.
+</Warning>
+
+## Session stuck or frozen
+
+A session shows a spinner indefinitely, or the assistant stops responding mid-generation.
+
+**Steps to recover:**
+
+1. Click the **Stop** button (square icon) in the message toolbar to cancel the current stream.
+2. If the stop button is unresponsive, close and reopen the session from the sidebar.
+3. To go back to a working state, use **Rewind** — open the session action menu in the chat header and select a previous checkpoint to restore the conversation to that point.
+
+<Tip>
+Use `/compact` before starting a long multi-step task to summarize older context. This reduces the chance of hitting context limits mid-session.
+</Tip>
+
+## High memory usage
+
+CodePilot's memory usage grows when you have many active sessions with large message histories.
+
+**Reduce memory usage:**
+
+1. **Archive old sessions** — Right-click any session in the sidebar and select **Delete** to remove it, or close sessions you're not actively using.
+2. **Use `/compact`** — Run `/compact` in long-running conversations to replace older messages with a summary. This reduces the context size and frees memory.
+3. **Reload the app** — As a desktop Electron app, a full reload (`Cmd+R` / `Ctrl+R` or restart the app) clears the renderer process memory.
+
+## Database corruption or errors
+
+In rare cases the SQLite database can become corrupted, usually after a hard shutdown.
+
+**Database location:**
+
+- Normal: `~/.codepilot/codepilot.db`
+- Development mode: `./data/codepilot.db` (relative to the project directory)
+
+**Recovery steps:**
+
+1. **Back up the database** before attempting any repair: copy `codepilot.db` to a safe location.
+2. Quit CodePilot completely.
+3. Delete or rename `codepilot.db`. CodePilot creates a fresh database on next launch.
+4. You can then import any Claude Code CLI sessions using **Settings → Claude Code → Import Chat History** to recover conversation history from `.jsonl` files.
+
+<Warning>
+Deleting the database removes all sessions, settings, and provider configurations. Make a backup first and only do this as a last resort.
+</Warning>
+
+## Rosetta performance warning
+
+If you're on Apple Silicon and see "CodePilot is running through Rosetta", you have installed the Intel (x64) build on an M-series Mac.
+
+Download the **arm64** (Apple Silicon) build from the [Releases page](https://github.com/op7418/CodePilot/releases) for better performance and responsiveness.

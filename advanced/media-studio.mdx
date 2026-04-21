@@ -1,0 +1,113 @@
+---
+title: "Media Studio: AI Image Generation and Batch Gallery"
+description: "Generate images with Google Gemini, manage your gallery, and run batch generation jobs from prompts — all inside CodePilot's Media Studio."
+---
+
+Media Studio is CodePilot's built-in image generation workspace. It connects to Google Gemini's image generation API and gives you a gallery to view, tag, and manage every image you've generated. You can generate single images, run batch jobs from a list of prompts, and see generated images inline inside conversations.
+
+## Prerequisites
+
+Media Studio requires a Google Gemini provider configured with image generation support.
+
+<Steps>
+  <Step title="Open Settings > Providers">
+    Click **Settings** in the sidebar, then select **Providers**.
+  </Step>
+  <Step title="Add a Gemini Image provider">
+    Click **Add Provider** and set the protocol to `gemini-image`. Enter your Google AI Studio API key. The default model is `gemini-3.1-flash-image-preview`.
+  </Step>
+  <Step title="Verify the configuration">
+    Save the provider. CodePilot will use this provider for all image generation requests. If no `gemini-image` provider is configured, generation requests will fail with a configuration error.
+  </Step>
+</Steps>
+
+<Note>
+Your Google AI API key must have access to Gemini's image generation models. Standard Gemini text API keys may not include image generation access — check the [Google AI Studio](https://aistudio.google.com) console to confirm your key's capabilities.
+</Note>
+
+## Generating a single image
+
+<Steps>
+  <Step title="Navigate to the Gallery page">
+    Click **Gallery** in the sidebar. This opens Media Studio.
+  </Step>
+  <Step title="Start a new generation task">
+    Click **New Generation** (or the **+** button). The generation panel opens on the right.
+  </Step>
+  <Step title="Enter your prompt">
+    Type a detailed description of the image you want. You can also set the aspect ratio (e.g., `16:9`, `1:1`, `4:3`) and image size (`1K`, `2K`, `4K`).
+  </Step>
+  <Step title="Generate">
+    Click **Generate**. CodePilot calls the Gemini API and shows a loading indicator. When the image is ready it appears in the gallery and is saved to `~/.codepilot/.codepilot-media/` on disk.
+  </Step>
+</Steps>
+
+## Generating images inside a conversation
+
+You can trigger image generation directly from a conversation without opening the Gallery page. In the conversation input, describe what you want generated:
+
+- "Generate an image of a futuristic city at sunset"
+- "Create a logo for a coffee brand called Morning Drift"
+- "Draw a diagram of a three-tier web architecture"
+
+CodePilot detects image-related intent in your message, injects the `codepilot_generate_image` tool, and the AI calls it automatically. The result appears inline in the conversation and is saved to the gallery simultaneously.
+
+<Tip>
+Reference images are supported. Attach an image file to your message and ask the AI to use it as a style reference or to continue an existing design.
+</Tip>
+
+## Batch image generation
+
+Batch jobs let you generate multiple images from a list of prompts in one operation. This is useful for producing a consistent set of assets or exploring prompt variations.
+
+<Steps>
+  <Step title="Open the Gallery page and click Batch">
+    Select **Batch** from the Gallery toolbar, or start a new batch job from the **+** menu.
+  </Step>
+  <Step title="Build your prompt list">
+    Enter each prompt on its own line, or paste a list. You can also specify per-item aspect ratio and tags. The AI planner can help expand a single style description into a full set of prompts — click **Plan with AI** and provide a style brief.
+  </Step>
+  <Step title="Configure batch settings">
+    Set the concurrency (how many images generate in parallel, default: 2) and the maximum retry count per item (default: 2). Higher concurrency finishes faster but may hit API rate limits.
+  </Step>
+  <Step title="Run the batch">
+    Click **Start**. A progress view shows each item's status: `pending`, `processing`, `completed`, or `failed`. You can pause or cancel the batch at any time.
+  </Step>
+</Steps>
+
+The batch engine uses exponential backoff on failures, automatically retrying failed items before marking them as failed. Completed images go straight to the gallery.
+
+## The gallery
+
+The gallery shows all images you've generated, across conversations and batch jobs.
+
+<CardGroup cols={2}>
+  <Card title="View and preview" icon="image">
+    Click any thumbnail to open a full-size preview with metadata: prompt, model, aspect ratio, generation time, and session context.
+  </Card>
+  <Card title="Tag and organize" icon="tag">
+    Add tags to images for easy filtering. Tags can be set manually or specified as part of the generation prompt or batch plan.
+  </Card>
+  <Card title="Filter by source" icon="filter">
+    Filter the gallery by provider, session, date range, or tag. The gallery shows images from all sources: conversations, batch jobs, and the design agent.
+  </Card>
+  <Card title="Open on disk" icon="folder-open">
+    Every image is saved locally to `~/.codepilot/.codepilot-media/`. Use **Open in Finder / Explorer** from the detail view to access the file directly.
+  </Card>
+</CardGroup>
+
+## Supported formats and sizes
+
+| Aspect ratio | Common use |
+|---|---|
+| `1:1` | Avatars, icons, social media posts |
+| `16:9` | Banners, presentations, thumbnails |
+| `4:3` | General illustrations |
+| `9:16` | Mobile wallpapers, Stories format |
+| `3:4` | Portrait illustrations |
+
+Image size options — `1K`, `2K`, `4K` — control output resolution. Higher resolutions take longer to generate and count toward larger API usage.
+
+<Warning>
+All generated images are stored locally on your machine. They are never uploaded to CodePilot servers. However, your prompts and image data are sent to the Google Gemini API — review Google's data handling policy before generating sensitive content.
+</Warning>

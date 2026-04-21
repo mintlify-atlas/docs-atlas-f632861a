@@ -1,80 +1,118 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quickstart: Download, Configure, and Chat with CodePilot"
+description: "Download CodePilot or build from source, configure an AI provider, and start your first conversation. Two setup paths for users and developers."
 ---
 
-## Get started in three steps
+CodePilot offers two ways to get started: download a pre-built release (recommended for most users), or build from source if you want to contribute or run the latest code. Either way, you'll be in a conversation with an AI agent in just a few minutes.
 
-Get your documentation site running locally and make your first customization.
+<Tabs>
+  <Tab title="Path A: Download a release">
+    <Steps>
+      <Step title="Download the installer">
+        Visit the [Releases page](https://github.com/op7418/CodePilot/releases) and download the installer for your platform:
 
-### Step 1: Set up your local environment
+        | Platform | Download | Architecture |
+        |---|---|---|
+        | macOS | Apple Silicon (.dmg) · Intel (.dmg) | arm64 / x64 |
+        | Windows | Installer (.exe) | x64 + arm64 |
+        | Linux | AppImage · .deb · .rpm | x64 + arm64 |
+      </Step>
+      <Step title="Install and launch">
+        Run the installer and open CodePilot. On macOS, Gatekeeper may show a warning on first launch — see the [Installation guide](/installation) for workarounds.
+      </Step>
+      <Step title="Configure a provider">
+        Go to **Settings → Providers** and add credentials for the provider you want to use. CodePilot includes presets for all major providers — pick one and enter your API key.
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+        <Tip>
+          Don't have an API key yet? [OpenRouter](https://openrouter.ai) gives you access to many models through a single key with pay-as-you-go pricing.
+        </Tip>
+      </Step>
+      <Step title="Start a conversation">
+        Click **New Chat** in the sidebar. Choose a working directory, select a mode (**Code**, **Plan**, or **Ask**), pick a model, and start chatting.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Path B: Build from source">
+    <Steps>
+      <Step title="Install prerequisites">
+        You need Node.js 18+ and npm 9+ (ships with Node 18).
 
-### Step 2: Deploy your changes
+        | Prerequisite | Minimum version |
+        |---|---|
+        | Node.js | 18+ |
+        | npm | 9+ |
+      </Step>
+      <Step title="Clone and install">
+        ```bash
+        git clone https://github.com/op7418/CodePilot.git
+        cd CodePilot
+        npm install
+        ```
+      </Step>
+      <Step title="Run in development mode">
+        <CodeGroup>
+          ```bash Browser mode
+          npm run dev
+          # Opens at http://localhost:3000
+          ```
+          ```bash Full desktop app
+          npm run electron:dev
+          # Starts Next.js + Electron shell
+          ```
+        </CodeGroup>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+        Use `npm run dev` for quick iteration in the browser. Use `npm run electron:dev` for the full desktop experience with native window controls and file system access.
+      </Step>
+      <Step title="Configure a provider">
+        Open **Settings → Providers** and add your API key for any supported provider.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## First launch checklist
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+Once CodePilot is running, work through these setup steps:
 
-### Step 3: Go live
+<Steps>
+  <Step title="Configure a provider">
+    Go to **Settings → Providers** and add credentials for the provider you want to use. Run **Diagnostics** to verify connectivity.
+  </Step>
+  <Step title="Create your first conversation">
+    Click **New Chat**. Pick a working directory (the folder your assistant will work in), select a mode, choose a model, and send your first message.
+  </Step>
+  <Step title="Set up Assistant Workspace (optional)">
+    Go to **Settings → Assistant**, choose a workspace directory, and enable **Onboarding**. CodePilot will create `soul.md`, `user.md`, `claude.md`, and `memory.md` at the workspace root and walk you through a 13-question onboarding flow.
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+    | File | Purpose |
+    |---|---|
+    | `soul.md` | AI personality and communication style |
+    | `user.md` | Your profile and preferences |
+    | `claude.md` | Rules and constraints for the AI |
+    | `memory.md` | Long-term notes (append-only) |
+  </Step>
+  <Step title="Add MCP servers and skills (optional)">
+    Navigate to the **MCP** page in the sidebar to add Model Context Protocol servers that give your assistant access to external tools and data sources. Visit the **Skills** page to install reusable agent behaviors from the [skills.sh](https://skills.sh) marketplace.
+  </Step>
+</Steps>
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Installing the [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code/overview) (`npm install -g @anthropic-ai/claude-code`) unlocks advanced capabilities like direct file editing, terminal commands, and git operations. It is recommended for Code mode but not required for basic chat with any provider.
 </Note>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="AI providers" icon="plug" href="/features/providers">
+    Configure Anthropic, OpenRouter, Bedrock, Vertex, Ollama, and more
+  </Card>
+  <Card title="Conversations" icon="messages" href="/features/conversations">
+    Modes, reasoning effort, session rewind, and split-screen
+  </Card>
+  <Card title="MCP servers" icon="server" href="/extensions/mcp-servers">
+    Extend your assistant with external tools and data sources
+  </Card>
+  <Card title="Assistant Workspace" icon="brain" href="/features/assistant-workspace">
+    Persona files and persistent memory
+  </Card>
+</CardGroup>

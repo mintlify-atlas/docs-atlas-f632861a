@@ -1,0 +1,157 @@
+---
+title: "CodePilot FAQ: Frequently Asked Questions Answered"
+description: "Answers to frequent questions about CodePilot: CLI requirements, conversation modes, data storage, offline use, updates, and custom providers."
+---
+
+Common questions about CodePilot, answered. If you don't find what you're looking for here, open an issue on [GitHub](https://github.com/op7418/CodePilot/issues) or join the community discussion.
+
+<AccordionGroup>
+
+<Accordion title="Do I need the Claude Code CLI?">
+No. The Claude Code CLI is optional. CodePilot's native runtime (built on the Vercel AI SDK) works with any configured provider — Anthropic, OpenRouter, Ollama, Volcengine, Zhipu GLM, and others — without the CLI installed.
+
+You only need the Claude Code CLI if you want to:
+- Use the **Claude Code SDK** as the agent backend (toggle in **Settings → Claude Code**)
+- Import existing `.jsonl` session history from the CLI
+
+For basic chat, coding assistance, and all other features, configure any provider under **Settings → Providers** and start a conversation.
+</Accordion>
+
+<Accordion title="What's the difference between Code, Plan, and Ask modes?">
+Each mode changes how the assistant approaches your request:
+
+| Mode | Behavior |
+|---|---|
+| **Code** | The assistant can read and write files, run terminal commands, and use git. Best for active development tasks. |
+| **Plan** | The assistant proposes a step-by-step plan before taking action. Use this when you want to review and approve the approach before any changes are made. |
+| **Ask** | Conversation-only mode. The assistant does not use file or terminal tools. Best for questions, explanations, and brainstorming. |
+
+You can switch modes mid-conversation using the mode selector in the toolbar below the message input. The change takes effect on the next message.
+</Accordion>
+
+<Accordion title="Where is my data stored?">
+All data stays on your machine. CodePilot does not have a cloud backend.
+
+| Data type | Location |
+|---|---|
+| Sessions and messages | `~/.codepilot/codepilot.db` |
+| Settings and provider config | Same SQLite database |
+| Generated images and media | `~/.codepilot-media/` |
+| Assistant workspace files | Your chosen workspace directory (set in **Settings → Assistant**) |
+| Development mode database | `./data/codepilot.db` relative to the project root |
+
+The database uses SQLite with WAL mode for fast concurrent reads. API keys are stored in the same database and are only sent to the respective provider's API endpoint.
+</Accordion>
+
+<Accordion title="Can I use CodePilot without an internet connection?">
+Yes, if you use Ollama as your provider. Ollama runs AI models locally, so no internet connection is needed once you have the models downloaded.
+
+To set up Ollama:
+1. Install Ollama from [ollama.com](https://ollama.com) and pull the models you want to use (e.g. `ollama pull llama3.2`)
+2. In CodePilot, go to **Settings → Providers** and select the **Ollama** preset
+3. Set the base URL (default: `http://localhost:11434`) and enter your model names
+4. Start a conversation — CodePilot will route requests to your local Ollama instance
+
+Other providers (Anthropic, OpenRouter, etc.) require an active internet connection to reach their APIs.
+</Accordion>
+
+<Accordion title="What's the difference between `npm run dev` and `npm run electron:dev`?">
+Both commands start CodePilot in development mode, but they behave differently:
+
+- **`npm run dev`** starts only the Next.js development server. You access CodePilot in your browser at `http://localhost:3000`. The Electron shell is not running, so there are no native window controls, system tray, or desktop integration features.
+
+- **`npm run electron:dev`** starts both the Next.js server and the Electron shell. This gives you the full desktop app experience with native windows, the application menu, and access to Electron APIs. This is the recommended mode for development that involves Electron-specific features.
+
+For most frontend work, `npm run dev` is faster to start and easier to debug. Use `npm run electron:dev` when you need to test Electron-specific behavior.
+</Accordion>
+
+<Accordion title="How do I update CodePilot?">
+**If you installed a release build:**
+
+CodePilot checks for updates automatically. When a new version is available, a banner appears in the app with a **Download & Install** button. Click it to download the update and restart to apply it.
+
+You can also check manually by going to **Settings → General** and clicking **Check for Updates**.
+
+**If you built from source:**
+
+```bash
+git pull origin main
+npm install
+npm run electron:dev
+```
+
+**Note for Apple Silicon users:** If you're running the Intel (x64) build under Rosetta, you'll see a notification recommending the arm64 build. Download the Apple Silicon version from the Releases page for better performance.
+</Accordion>
+
+<Accordion title="Where are the Assistant Workspace files?">
+When you set up an assistant workspace in **Settings → Assistant**, CodePilot creates four Markdown files at the root of your chosen workspace directory:
+
+| File | Contents |
+|---|---|
+| `soul.md` | The assistant's personality and communication style |
+| `user.md` | Your profile and preferences |
+| `claude.md` | Rules and constraints for the assistant |
+| `memory.md` | Long-term memory (append-only, protected against duplicates) |
+
+State tracking and daily memories are stored in the `.assistant/` subdirectory:
+
+- `.assistant/state.json` — Onboarding progress and last check-in date
+- `.assistant/config.json` — Workspace organization settings
+- `memory/daily/` — Episodic daily memory entries, one file per day
+
+You can edit these files directly in any text editor. Changes are picked up on the next conversation in that workspace.
+</Accordion>
+
+<Accordion title="Bridge requires additional setup per platform — what do I need?">
+Each Bridge channel requires you to create a bot on the target platform and provide credentials to CodePilot. Here's a summary:
+
+| Platform | What you need |
+|---|---|
+| **Telegram** | A bot token from @BotFather, plus your Chat ID (auto-detectable in the app) |
+| **Feishu / Lark** | An App ID and App Secret — use the **Quick Start** flow to auto-create and bind a bot, or configure manually |
+| **Discord** | A Bot Token from the Discord Developer Portal, with Message Content Intent enabled |
+| **QQ** | An App ID and App Secret from the QQ Bot Quick Setup page |
+| **WeChat** | QR code login — scan with your WeChat account to link it |
+
+Go to the **Bridge** page in the sidebar, enable the Remote Bridge toggle, then open each channel's settings panel for step-by-step instructions.
+
+After configuring credentials, click **Start Bridge** to activate. The adapter status panel shows real-time connection state per channel.
+</Accordion>
+
+<Accordion title="How do I import Claude Code CLI session history?">
+If you have existing sessions from the Claude Code CLI, you can import them into CodePilot:
+
+1. Go to **Settings → Claude Code**
+2. Under **Import Chat History**, click **Import from Claude Code**
+3. Browse and select the `.jsonl` session file(s) you want to import
+4. The imported sessions appear in the chat list
+
+Claude Code CLI stores sessions as `.jsonl` files in `~/.claude/`. Each file is a single session's message history.
+
+<Note>
+Imported sessions are read-only conversation history — you cannot resume them as live agent sessions. To continue working on an imported project, create a new session with the same working directory.
+</Note>
+</Accordion>
+
+<Accordion title="How do I add a custom AI provider endpoint?">
+CodePilot supports any Anthropic-compatible or OpenAI-compatible endpoint as a custom provider.
+
+**For Anthropic-compatible endpoints:**
+
+1. Go to **Settings → Providers** and click **Add Provider**
+2. Select **Anthropic Third-party API** from the presets
+3. Enter a name, your API key, and the base URL of your endpoint
+4. Add any required model names in the model mapping section
+
+**For OpenAI-compatible endpoints:**
+
+Use the same flow but set **Provider Type** to a custom preset if available, or configure via **Extra Environment Variables** to route through LiteLLM.
+
+**Using LiteLLM as a proxy:**
+
+LiteLLM can translate between OpenAI-compatible APIs and the Anthropic protocol that CodePilot uses. Configure a LiteLLM provider with your proxy's base URL and API key.
+
+After saving, click **Diagnose** on the new provider to verify connectivity before starting a conversation.
+</Accordion>
+
+</AccordionGroup>

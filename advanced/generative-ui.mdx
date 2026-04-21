@@ -1,0 +1,89 @@
+---
+title: "Generative UI: AI-Created Interactive Widgets in Chat"
+description: "How CodePilot's Generative UI renders AI-created dashboards, charts, and mini-apps inline in conversations with sandboxed security and theme integration."
+---
+
+Generative UI lets the AI model generate interactive visual components — charts, dashboards, calculators, forms, and mini-apps — that render directly inside your CodePilot conversation. Rather than describing data in plain text, the AI can output a live, interactive widget you can interact with immediately.
+
+## How it works
+
+When you ask the AI to create a visualization or interactive component, it outputs a special `show-widget` code fence containing HTML and JavaScript. CodePilot detects this fence in the response stream and renders the content in a sandboxed `<iframe>` that sits inline within the conversation.
+
+The widget appears alongside the AI's text response. It inherits your active light or dark theme automatically through CSS variable bridging, so widgets always look consistent with the rest of the UI.
+
+<CardGroup cols={2}>
+  <Card title="Data visualization" icon="chart-bar">
+    Ask the AI to plot data as bar charts, line graphs, pie charts, or scatter plots using Chart.js or D3.
+  </Card>
+  <Card title="Interactive forms" icon="list-check">
+    Generate calculators, configurators, or multi-step input forms that run client-side inside the widget.
+  </Card>
+  <Card title="Diagrams and flowcharts" icon="diagram-project">
+    Create architecture diagrams, flowcharts, and relationship graphs rendered as SVG or canvas.
+  </Card>
+  <Card title="Mini-apps" icon="window">
+    Build small self-contained tools like timers, converters, or data explorers without leaving the conversation.
+  </Card>
+</CardGroup>
+
+## Triggering a widget
+
+You don't need any special syntax. Just describe what you want in natural language.
+
+**Example prompts:**
+
+- "Create a dashboard showing monthly sales data as a bar chart"
+- "Make an interactive BMI calculator"
+- "Draw a flowchart of my deployment pipeline"
+- "Build a color palette generator I can interact with"
+
+The AI decides when a visual widget is more useful than plain text. If you want to be explicit, ask to "create a chart" or "make a visual" and it will produce a `show-widget` artifact.
+
+<Note>
+Generative UI works best with official Anthropic API providers. Some third-party providers do not forward the system prompt instruction that enables widget generation, so the AI may fall back to plain text output on those providers.
+</Note>
+
+## Security model
+
+Every widget runs in a strict three-layer sandbox. You can safely render AI-generated HTML and JavaScript without it affecting CodePilot or your system.
+
+<Steps>
+  <Step title="Streaming sanitization">
+    While the AI is still generating the widget, inline scripts and event handlers are stripped from partial output. This prevents incomplete JavaScript from executing or appearing as raw text.
+  </Step>
+  <Step title="Final sanitization">
+    Once the widget is fully generated, escape-prone tags (`<iframe>`, `<object>`, `<embed>`, `<form>`, `<meta>`, `<base>`) are removed. Scripts and event handlers are preserved but only execute inside the sandbox.
+  </Step>
+  <Step title="iframe sandbox">
+    The widget runs in an `<iframe>` with `sandbox="allow-scripts"`. There is no `allow-same-origin`, `allow-top-navigation`, or `allow-popups`. The Content Security Policy blocks all `fetch`, `XHR`, and `WebSocket` calls (`connect-src 'none'`), so widgets cannot make network requests to external services.
+  </Step>
+</Steps>
+
+External scripts are allowed from a fixed CDN allowlist: `cdnjs.cloudflare.com`, `cdn.jsdelivr.net`, `unpkg.com`, and `esm.sh`. This lets widgets load Chart.js, D3, or similar libraries without enabling arbitrary network access.
+
+<Warning>
+Because `connect-src 'none'` is enforced, widgets cannot call external APIs or load remote data at runtime. All data the widget displays must be embedded in the widget code itself at generation time.
+</Warning>
+
+## Theme integration
+
+Widgets automatically follow your CodePilot theme. The `widget-css-bridge` maps CodePilot's internal OKLCH color tokens to standard CSS variable names (`--background`, `--foreground`, `--border`, and others). The AI writes CSS using these standard names, and CodePilot injects the correct values for your current theme. Switching between dark and light mode propagates to all active widgets instantly via a `widget:theme` message.
+
+## Exporting a widget
+
+To save a widget as a standalone file:
+
+<Steps>
+  <Step title="Open the widget menu">
+    Hover over the widget in the conversation. A toolbar appears at the top right of the widget frame.
+  </Step>
+  <Step title="Copy or export">
+    Select **Copy HTML** to copy the full widget source to your clipboard, or **Export** to save it as a `.html` file. The exported file is self-contained and opens in any browser without CodePilot.
+  </Step>
+</Steps>
+
+## Known limitations
+
+- Each widget should be under 3,000 characters of HTML/JS for the best streaming experience. Larger widgets are supported but may render more slowly.
+- CDN libraries (such as Chart.js) are fetched at render time and require an internet connection to load. A shimmer overlay is shown while scripts are loading.
+- Widgets cannot persist state between conversation turns. If you close and reopen a session, the widget re-renders from its saved code.

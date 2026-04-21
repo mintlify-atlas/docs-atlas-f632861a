@@ -1,0 +1,157 @@
+---
+title: "CodePilot Settings and Configuration Reference Guide"
+description: "All configurable settings in CodePilot: providers, assistant workspace, appearance, permissions, and per-session options fully explained."
+---
+
+CodePilot stores all settings locally on your machine. There is no account or cloud sync — everything you configure stays in a local SQLite database at `~/.codepilot/codepilot.db`. This page covers every settings area and explains what each option does.
+
+## Settings → Providers
+
+Go to **Settings → Providers** to add and manage AI providers. CodePilot ships with presets for 17+ providers — select one and fill in the required fields.
+
+### Common fields
+
+| Field | Description |
+|---|---|
+| **Name** | A label for this provider entry (shown in the model selector) |
+| **Provider type** | The preset to use (Anthropic, OpenRouter, Ollama, etc.) |
+| **API Key** | Your provider API key. Stored locally, never sent anywhere except the provider's API endpoint |
+| **Base URL** | The API endpoint. Pre-filled for presets; editable for custom endpoints |
+| **Auth style** | `API Key` or `Auth Token` — determined automatically by the preset |
+| **Model names** | Required for some providers (Volcengine Ark, Ollama) where models are user-specified |
+| **Advanced options** | Extra environment variables passed to the Claude Code SDK subprocess |
+| **Notes** | Free-text notes visible in the provider list |
+
+### Provider-specific fields
+
+Some providers require additional environment setup instead of (or in addition to) an API key:
+
+| Provider | Auth method |
+|---|---|
+| Anthropic | API key (`ANTHROPIC_API_KEY`) |
+| OpenRouter | Auth token (`ANTHROPIC_AUTH_TOKEN`) |
+| AWS Bedrock | Environment variables only (`AWS_REGION`, IAM credentials) |
+| Google Vertex AI | Environment variables only (`CLOUD_ML_REGION`, GCP credentials) |
+| Ollama | No auth needed (pseudo-token `ollama` set automatically) |
+
+### Setting a default provider
+
+Click **Set as Default** on any configured provider to make it the default for new conversations. The default model is also configurable per provider.
+
+### 1M context window
+
+For providers that support extended context (Anthropic Sonnet 4.6 and Opus 4.7), you can enable the **1M Context Window** toggle on the provider card. This is a beta feature with different pricing above 200K tokens.
+
+<Warning>
+Enabling the 1M context window sends an extended-context beta header with every request to that provider. Check your provider's pricing before enabling this on high-volume sessions.
+</Warning>
+
+## Settings → Claude Code
+
+The **Claude Code** settings page controls how CodePilot interfaces with the Claude Code CLI.
+
+| Setting | Description |
+|---|---|
+| **Enable Claude Code** | Toggle between the native AI SDK runtime and the Claude Code CLI as the agent backend |
+| **Agent runtime** | Choose `Native Runtime (AI SDK)` or `Claude Code SDK` |
+| **Adaptive reasoning** | Controls how much the model reasons before responding |
+| **1M context window** | Enable extended context for Sonnet 4.6 and Opus 4.7 |
+| **Claude Code configuration** | Edit `~/.claude/settings.json` directly from the UI (Form or JSON view) |
+| **Import chat history** | Import `.jsonl` session files from the Claude Code CLI |
+
+### Permissions
+
+The permissions section maps to the `permissions` block in `~/.claude/settings.json`. You can edit these in Form view (key-value pairs) or switch to JSON view for full control.
+
+### Environment variables
+
+Environment variables set here are passed to the Claude Code subprocess for every session. Common uses include proxy settings and feature flags.
+
+## Settings → General (CodePilot)
+
+| Setting | Description |
+|---|---|
+| **Theme mode** | Light, Dark, or System (follows your OS preference) |
+| **Color theme** | Color palette for the interface |
+| **Language** | Display language: English or Chinese (中文) |
+| **Default side panel** | Panel to auto-open when starting a new conversation: None, File Tree, Dashboard, or Git |
+| **Generative UI** | Enable interactive charts and visual widgets in chat responses. Disabling this saves tokens |
+| **Anonymous error reporting** | Send anonymized crash reports to help improve CodePilot. No conversation content or API keys are included |
+| **Auto-approve all actions** | Skip all permission checks and approve every tool action automatically. Use only for trusted tasks |
+
+## Settings → Assistant
+
+The **Assistant** section lets you configure the Assistant Workspace — a persistent directory where CodePilot stores persona files and long-term memory.
+
+| Setting | Description |
+|---|---|
+| **Workspace directory** | Absolute path to your assistant workspace folder |
+| **Onboarding** | Run the onboarding questionnaire to set up persona files |
+| **Daily check-in** | Enable lightweight daily check-ins (3 questions) to update memory |
+
+### Workspace files
+
+When you initialize a workspace, CodePilot creates four Markdown files at the workspace root:
+
+| File | Purpose |
+|---|---|
+| `soul.md` | Personality and communication style |
+| `user.md` | Your profile and preferences |
+| `claude.md` | Rules and constraints for the assistant |
+| `memory.md` | Long-term memory (append-only, deduplicated) |
+
+State tracking and daily memory entries are stored in the `.assistant/` subdirectory:
+
+```
+workspace/
+├── soul.md
+├── user.md
+├── claude.md
+├── memory.md
+├── memory/
+│   └── daily/           # Episodic daily memories
+└── .assistant/
+    ├── state.json       # Onboarding progress, check-in dates
+    ├── config.json      # Workspace configuration
+    └── index/           # Search index for workspace files
+```
+
+### `.assistant/config.json`
+
+This file controls how the workspace is organized and indexed. Key options:
+
+| Option | Description |
+|---|---|
+| `organizationStyle` | `project`, `time`, `topic`, or `mixed` — how notes are organized |
+| `captureDefault` | Default directory for new captured notes |
+| `archivePolicy.dailyMemoryRetentionDays` | How many days of daily memories to keep before archiving |
+| `ignore` | Glob patterns to exclude from the search index |
+| `index.maxFileSizeKB` | Maximum file size to include in the index |
+
+## Per-session settings
+
+Each conversation has its own settings that override the global defaults:
+
+| Setting | Where to change it | Description |
+|---|---|---|
+| **Working directory** | Session header or new conversation dialog | The project folder for this session. Tool calls (file edits, terminal) operate relative to this path |
+| **Mode** | Toolbar below the input | `Code`, `Plan`, or `Ask` |
+| **Model** | Model selector in the input toolbar | The AI model for this session. Can be changed mid-conversation |
+| **Permission profile** | Permission selector in the input toolbar | `Default` (per-action approval) or `Full Access` (auto-approve for this session only) |
+| **Reasoning effort** | Effort selector in the input toolbar | `Low`, `Medium`, `High`, `Max` — controls how much the model reasons before responding (only available on supporting models) |
+
+<Note>
+Changing the model mid-conversation does not affect earlier messages. The new model takes effect on the next message you send.
+</Note>
+
+## Data storage
+
+| Data | Location |
+|---|---|
+| Sessions and messages | `~/.codepilot/codepilot.db` (SQLite, WAL mode) |
+| Settings | Same database (`settings` table) |
+| Generated images and media | `~/.codepilot-media/` |
+| Assistant workspace files | Your chosen workspace directory |
+| Development mode database | `./data/` relative to the project root |
+
+All data is stored locally. There is no telemetry that includes conversation content, API keys, or file paths.
